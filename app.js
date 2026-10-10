@@ -308,7 +308,7 @@ function loadSample(){if(DB.led.some(r=>r['หมายเหตุ']==='ตั�
   LOCAL.addDebtPayment({creditor:'บัตรเครดิต (ตัวอย่าง)',amount:2000,date:d(-30),note:T});
   toast('ใส่ข้อมูลตัวอย่างแล้ว ✨ (ลบได้ด้วยปุ่ม ลบเฉพาะตัวอย่าง)');boot();}
 /* ---------------- Dashboard v3 (crayon visuals) ---------------- */
-const CRAYON=['#F2789F','#5FA2DD','#5DBB8F','#F59A5B','#9A7FD1','#E8C33A','#E66B6B','#4DB6C8','#C98ED6','#9AAE5A'];
+const CRAYON=['#B5653A','#E3B26B','#8FAE7E','#C98B5A','#9C7A97','#6F8FAF','#E7A4A0','#7B4A2A','#D9B48C','#A8C495'];
 const emptyMsg=(e,t)=>`<div class="empty"><span class="big">${e}</span>${t}</div>`;
 function donutSVG(data){const tot=data.reduce((s,d)=>s+d[1],0);const R=58,C=2*Math.PI*R;let off=0;
   const arcs=data.map((d,i)=>{const len=d[1]/tot*C;const a=`<circle r="${R}" cx="85" cy="85" fill="none" stroke="${CRAYON[i%CRAYON.length]}" stroke-width="30" stroke-dasharray="${Math.max(0,len-2)} ${C}" stroke-dashoffset="${-off}" transform="rotate(-90 85 85)"/>`;off+=len;return a;}).join('');
