@@ -320,6 +320,13 @@ input,select,textarea{border:2.5px solid #5A3A26;border-radius:14px 9px 15px 10p
 .calgrid .dots{display:flex;gap:2px;flex-wrap:wrap;justify-content:center;margin-top:2px;max-width:30px}.calgrid .dots i{width:6px;height:6px;border-radius:50%;display:block}
 .calleg{display:flex;gap:8px;flex-wrap:wrap;font-size:11.5px;color:var(--muted);margin-top:6px}.calleg i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:3px}
 .dsec{margin:8px 0}.dsec h4{margin:4px 0;font-family:Itim;font-weight:400;font-size:16px}
+.apup{margin-top:8px}.apup h4,#apList h4{margin:6px 0 2px;font-family:Itim;font-weight:400;font-size:16px}
+.apitem{display:flex;gap:8px;align-items:center;padding:7px 4px;border-bottom:2px dashed rgba(90,58,38,.15)}.apitem:last-child{border:none}
+.apitem .ae{font-size:24px;width:36px;height:36px;border-radius:50%;background:#DCE6F2;display:flex;align-items:center;justify-content:center;flex:none}
+.apitem .tx{flex:1;min-width:0}.apitem .tx b{display:block;font-size:15px}.apitem .tx small{color:var(--muted);font-size:12.5px}.apitem.done .tx b{text-decoration:line-through;opacity:.55}
+.apitem .mav{display:inline-flex;margin-left:2px}.apitem .mav .av{width:20px;height:20px;font-size:12px;margin-left:-4px;border:1.5px solid #fff}
+.mpick{display:flex;flex-wrap:wrap;gap:6px}.mpick label{display:flex;align-items:center;gap:4px;padding:4px 8px 4px 4px;border-radius:20px;border:2px solid rgba(90,58,38,.25);background:#FFF6E6;margin:0;font-size:13.5px;cursor:pointer}
+.mpick input{display:none}.mpick label:has(input:checked){background:#DCE6F2;border-color:#5B8FD0}.mpick .av{width:24px;height:24px;font-size:14px}
 </style>
 </head>
 <body>
@@ -358,7 +365,7 @@ input,select,textarea{border:2.5px solid #5A3A26;border-radius:14px 9px 15px 10p
     <div class="card brief"><h2>☀️ <span class="hl">สรุปวันนี้</span></h2><ul id="vBrief" class="brief-ul"></ul></div>
     <div class="card cal"><div class="calhead"><button class="btn sm ghost" onclick="calMove(-1)">◀</button><h2 id="calTitle" style="margin:0;flex:1;justify-content:center"></h2><button class="btn sm ghost" onclick="calMove(1)">▶</button></div>
       <div id="calGrid" class="calgrid"></div>
-      <div class="calleg"><span><i style="background:#D9483B"></i>บิล</span><span><i style="background:#6FB36B"></i>งานบ้าน</span><span><i style="background:#F2C94C"></i>เมนู</span><span><i style="background:#8A5A3B"></i>รายจ่าย</span><span><i style="background:#5B8FD0"></i>เตือน</span></div></div>
+      <div id="apUp" class="apup"></div></div>
     <div class="sumrow">
       <div class="card wk"><h2>📅 <span class="hl">สัปดาห์นี้</span></h2><div id="vWeek"></div></div>
       <div class="bigscan"><span class="cam">📷</span><b>สแกนบิล</b>
@@ -454,6 +461,7 @@ input,select,textarea{border:2.5px solid #5A3A26;border-radius:14px 9px 15px 10p
     <h2 class="ptitle">🗂️ <span class="hl">หมวดทั้งหมด</span></h2>
     <div class="gallery" id="gallery"></div>
   </section>
+  <section class="page" id="p-appt"><div class="card"><h2>📌 <span class="hl">นัดหมายของบ้าน</span></h2><button class="btn full" onclick="editAppt(0)">＋ เพิ่มนัด</button><div id="apList"></div></div></section>
   <section class="page" id="p-members">
     <div class="card"><h2>👨‍👩‍👧 <span class="hl">สมาชิกในบ้าน</span> <button class="btn sm act" onclick="editMember()">＋ เพิ่ม</button></h2><div class="mgrid" id="memList"></div></div>
     <div class="card"><h2>💸 <span class="hl">ใช้จ่ายให้ใคร (เดือนนี้)</span></h2><div id="memSpend"></div></div>
