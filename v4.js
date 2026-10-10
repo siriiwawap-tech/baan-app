@@ -524,4 +524,4 @@ function saveDebtPayEdit(row){const r=DB.debtlog.find(x=>x._row===row);if(!r)ret
   Object.assign(r,{'เจ้าหนี้ที่จ่าย':$('epCred').value,'วันที่จ่าย':$('epDate').value,'จำนวนที่จ่าย':a,'ส่วนดอกเบี้ย':i});if('ส่วนเงินต้น' in r)r['ส่วนเงินต้น']=a-i;persist();closeModal();toast('แก้ไขแล้ว ✅');loadMoney();}
 /* bigger member cards */
 {const _lmem=loadMembers;loadMembers=function(){_lmem();$('memList').innerHTML=MEM().map(m=>`<div class="mem big"><div onclick="${m.photo?`lightbox(DB.members.find(x=>x.id===${m.id}).photo)`:`editMember(${m.id})`}" style="cursor:${m.photo?'zoom-in':'pointer'}">${avatar(m,'xl')}</div>
-  <div class="mname">${esc(m.name)}</div><small>${m.kind==='business'?'🏢 กิจการ':'บุคคล'}</small><button class="btn sm ghost" onclick="editMember(${m.id})">✏️ แก้ไข</button></div>`).join('')||emptyMsg('🏠','ยังไม่มีสมาชิก');};LOADERS.members=loadMembers;}
+  <div class="mname">${esc(m.name)}</div><small>${m.kind==='business'?'🏢 กิจการ':'บุคคล'}</small><button class="edb2" onclick="editMember(${m.id})">✏️ แก้ไข</button></div>`).join('')||emptyMsg('🏠','ยังไม่มีสมาชิก');};LOADERS.members=loadMembers;}
