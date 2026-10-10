@@ -204,3 +204,14 @@ loadSample=function(){const before=DB.led.length;_loadSample();const nm=MEM().ma
 
 /* settings: include members in todo assignee list */
 S.lists=DB.lists;renderMemBox();
+
+/* ---------- 🔄 refresh to latest version (never touches localStorage) ---------- */
+async function hardRefresh(){const b=$('refBtn');b.classList.add('spin');b.textContent='⏳ กำลังอัปเดต…';
+  try{if('serviceWorker' in navigator){const reg=await navigator.serviceWorker.getRegistration();
+      if(reg){await reg.update().catch(()=>{});const w=reg.waiting||reg.installing;
+        if(w){w.postMessage('SKIP_WAITING');await new Promise(r=>{if(w.state==='activated')return r();w.addEventListener('statechange',()=>{if(w.state==='activated')r();});setTimeout(r,3000);});}}}
+    if(window.caches){const ks=await caches.keys();await Promise.all(ks.map(k=>caches.delete(k)));}
+  }catch(e){}
+  sessionStorage.setItem('hm_updated','1');location.reload();}
+if(sessionStorage.getItem('hm_updated')){sessionStorage.removeItem('hm_updated');setTimeout(()=>toast('อัปเดตแล้ว ✨'),400);}
+loadDash();
