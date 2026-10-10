@@ -169,7 +169,6 @@ async function gFetch(url,opt,ms,label){const ac=new AbortController();const t=s
   catch(e){if(e.name==='AbortError'){const x=new Error(`${label} หมดเวลา (เกิน ${Math.round(ms/1000)} วินาที) – เน็ตช้าหรือถูกบล็อก`);x.timeout=true;throw x;}
     if(e.status)throw e;const x=new Error(`${label} เชื่อมต่อไม่ได้: ${e.message||e}`);x.network=true;throw x;}
   finally{clearTimeout(t);}}
-function geminiCall(model,key,body,ms){return gFetch(`${GAPI}models/${encodeURIComponent(model)}:generateContent`,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':key},body:JSON.stringify(body)},ms||45000,'Gemini ('+model+')');}
 const verNum=n=>{const m=n.match(/gemini-(\d+(?:\.\d+)?)/);return m?parseFloat(m[1]):0;};
 async function listGeminiModels(key){const all=[];let tok='';
   for(let page=0;page<3;page++){const j=await gFetch(`${GAPI}models?pageSize=1000${tok?'&pageToken='+encodeURIComponent(tok):''}`,{headers:{'x-goog-api-key':key}},10000,'ดึงรายชื่อโมเดล');
@@ -181,33 +180,50 @@ async function listGeminiModels(key){const all=[];let tok='';
 const isGone=e=>e.status===404||/no longer available|not found|is not supported|deprecated|unknown model/i.test(e.apiMsg||e.message||'');
 const isSchemaErr=e=>e.status===400&&/schema|response_?mime|responseMimeType|generation_?config/i.test(e.apiMsg||'');
 const suggested=e=>((e.apiMsg||e.message||'').match(/models\/([a-z0-9][a-z0-9.\-]*[a-z0-9])/gi)||[]).map(s=>s.replace(/^models\//i,''));
-const isThinkErr=e=>e.status===400&&/thinking/i.test(e.apiMsg||'');
-const THINK=[{thinkingBudget:0},{thinkingLevel:'low'},null];
-/* iterative (no recursion): bounded queue of candidate models, per-call timeout + total deadline */
-async function geminiGenerate(key,body,opt){opt=Object.assign({timeout:45000,maxModels:3,total:120000},opt||{});key=cleanKey(key);if(!key)throw new Error('ยังไม่มี API key');
+const GDBG=[];function gdbg(o){GDBG.push(new Date().toLocaleTimeString('th-TH')+' '+JSON.stringify(o));if(GDBG.length>60)GDBG.shift();const el=$('gemDbg');if(el)el.textContent=GDBG.join('\n');}
+const shapeOf=b=>JSON.parse(JSON.stringify(b,(k,v)=>k==='data'&&typeof v==='string'?`<base64 ${v.length} chars>`:(k==='text'&&typeof v==='string'&&v.length>60?v.slice(0,60)+`…(${v.length})`:v)));
+function geminiCall(model,key,body,ms,ver){ver=ver||'v1beta';return gFetch(`https://generativelanguage.googleapis.com/${ver}/models/${encodeURIComponent(model)}:generateContent`,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':key},body:JSON.stringify(body)},ms||45000,'Gemini ('+model+')');}
+/* progressive simplification levels: 0 full+thinking off, 1 no thinkingConfig, 2 no generationConfig extras, 3 minimal {contents} */
+const JSON_HINT='\n\nตอบเป็น JSON ล้วนเท่านั้น ไม่มีข้อความอื่น รูปแบบ {"date":"","store":"","total":0,"items":[{"name":"","qty":1,"price":0}],"category":""}';
+function buildBody(base,lvl){const b=JSON.parse(JSON.stringify(base));const gc=b.generationConfig||{};
+  if(gc.maxOutputTokens&&gc.maxOutputTokens<64)gc.maxOutputTokens=64;
+  if(lvl===0){gc.thinkingConfig={thinkingBudget:0};b.generationConfig=gc;}
+  else if(lvl===1){if(Object.keys(gc).length)b.generationConfig=gc;}
+  else{const hadSchema=!!gc.responseSchema||gc.responseMimeType==='application/json';
+    if(lvl===2){const g2={};if(gc.temperature!=null)g2.temperature=gc.temperature;if(Object.keys(g2).length)b.generationConfig=g2;else delete b.generationConfig;}
+    else{Object.keys(b).forEach(k=>{if(k!=='contents')delete b[k];});b.contents=b.contents.map(c=>({parts:c.parts}));}
+    if(hadSchema&&b.contents[0].parts[0].text)b.contents[0].parts[0].text+=JSON_HINT;}
+  return b;}
+const ATTEMPTS=[['v1beta',0],['v1beta',1],['v1beta',2],['v1beta',3],['v1',2],['v1',3]];
+const cfgGet=()=>{try{return JSON.parse(localStorage.getItem('hm_gemini_cfg'))||{};}catch(e){return {};}};
+const cfgSet=(m,i)=>{const c=cfgGet();c[m]=i;localStorage.setItem('hm_gemini_cfg',JSON.stringify(c));};
+async function geminiGenerate(key,body,opt){opt=Object.assign({timeout:45000,maxModels:4,total:120000},opt||{});key=cleanKey(key);if(!key)throw new Error('ยังไม่มี API key');
   const deadline=Date.now()+opt.total,left=()=>deadline-Date.now();
   const queue=[],tried=new Set(),add=(arr,front)=>{arr=arr.filter(n=>n&&!tried.has(n)&&!queue.includes(n));front?queue.unshift(...arr):queue.push(...arr);};
   const cached=localStorage.getItem(GMODEL);if(cached)add([cached]);
   let listed=false;const doList=async()=>{if(listed)return;listed=true;GEM_STEP('🔎 ค้นหาโมเดลที่ใช้ได้…');
     try{const ms=await listGeminiModels(key);const lite=ms.find(n=>/lite/.test(n)),full=ms.filter(n=>!/lite/.test(n));
-      GEM_STEP('📋 พบ '+ms.length+' โมเดล: '+(ms[0]||'-'));add([full[0],lite,full[1]].filter(Boolean));}catch(e){GEM_STEP('⚠️ '+e.message+' → ลองรายชื่อสำรอง');}
+      GEM_STEP('📋 พบ '+ms.length+' โมเดล: '+(ms[0]||'-'));gdbg({list:ms});
+      add([full[0],lite,...['gemini-2.5-flash','gemini-flash-latest'].filter(n=>ms.includes(n)),full[1]].filter(Boolean));}
+    catch(e){GEM_STEP('⚠️ '+e.message+' → ลองรายชื่อสำรอง');gdbg({listError:e.message});}
     add(GEM_FALLBACK);};
   if(!queue.length)await doList();
-  let lastErr=null,schemaDropped=false,ti=Math.min(2,Number(localStorage.getItem('hm_gemini_think'))||0),b=JSON.parse(JSON.stringify(body)),models=0;
-  const withThink=()=>{const x=JSON.parse(JSON.stringify(b));x.generationConfig=x.generationConfig||{};if(THINK[ti])x.generationConfig.thinkingConfig=THINK[ti];return x;};
-  for(let i=0;i<12;i++){if(!queue.length){if(listed)break;await doList();if(!queue.length)break;}
-    if(left()<3000){lastErr=new Error('หมดเวลารวม ('+Math.round(opt.total/1000)+' วินาที)');break;}
-    const model=queue[0];if(!tried.has(model)){if(models>=opt.maxModels)break;models++;tried.add(model);}
-    const ms=Math.min(opt.timeout,left()),t0=Date.now();GEM_STEP('🤖 ลองโมเดล '+model+'…');
-    try{const j=await geminiCall(model,key,withThink(),ms);localStorage.setItem(GMODEL,model);localStorage.setItem('hm_gemini_think',String(ti));GEM_STEP('⚡ '+model+' ตอบใน '+((Date.now()-t0)/1000).toFixed(1)+' วิ');return {j,model};}
-    catch(e){lastErr=e;GEM_STEP('❌ '+model+': '+e.message);
-      if(isThinkErr(e)&&ti<THINK.length-1){ti++;continue;}
-      if(isSchemaErr(e)&&!schemaDropped&&b.generationConfig&&b.generationConfig.responseSchema){schemaDropped=true;delete b.generationConfig.responseSchema;delete b.generationConfig.responseMimeType;
-        b.contents[0].parts[0].text+='\n\nตอบเป็น JSON ล้วนเท่านั้น ไม่มีข้อความอื่น รูปแบบ {"date":"","store":"","total":0,"items":[{"name":"","qty":1,"price":0}],"category":""}';continue;}
-      queue.shift();
-      if((e.status===400||e.status===401||e.status===403)&&!isGone(e))throw e;
-      if(model===localStorage.getItem(GMODEL)){localStorage.removeItem(GMODEL);localStorage.removeItem('hm_gemini_think');ti=0;}
-      add(suggested(e),true);if(!listed&&!queue.length)await doList();}}
+  let lastErr=null,models=0;
+  for(let guard=0;guard<10;guard++){if(!queue.length){if(listed)break;await doList();if(!queue.length)break;}
+    if(models>=opt.maxModels)break;const model=queue.shift();if(tried.has(model))continue;tried.add(model);models++;
+    let ai=Math.min(ATTEMPTS.length-1,Number(cfgGet()[model])||0);
+    while(ai<ATTEMPTS.length){if(left()<3000){lastErr=new Error('หมดเวลารวม ('+Math.round(opt.total/1000)+' วินาที)');break;}
+      const [ver,lvl]=ATTEMPTS[ai],b=buildBody(body,lvl),ms=Math.min(opt.timeout,left()),t0=Date.now();
+      GEM_STEP('🤖 ลอง '+model+(ai?' (แบบง่าย '+ai+')':'')+'…');gdbg({req:{ver,model,lvl,body:shapeOf(b)}});
+      try{const j=await geminiCall(model,key,b,ms,ver);cfgSet(model,ai);localStorage.setItem(GMODEL,model);gdbg({ok:model,ver,lvl,sec:(Date.now()-t0)/1000});
+        GEM_STEP('⚡ '+model+' ตอบใน '+((Date.now()-t0)/1000).toFixed(1)+' วิ');return {j,model};}
+      catch(e){lastErr=e;gdbg({err:model,ver,lvl,status:e.status||null,msg:e.message});GEM_STEP('❌ '+model+': '+e.message);
+        if(e.status===400&&!/no longer available|deprecated/i.test(e.apiMsg||"")){ai++;continue;}  // any 400 → simpler body / v1
+        break;}}
+    if(left()<3000)break;
+    if(lastErr&&(lastErr.status===401||lastErr.status===403))throw lastErr;
+    if(model===localStorage.getItem(GMODEL))localStorage.removeItem(GMODEL);
+    if(lastErr)add(suggested(lastErr),true);if(!listed&&!queue.length)await doList();}
   throw lastErr||new Error('ไม่พบโมเดล Gemini ที่ใช้ได้');}
 const parseJsonLoose=t=>{try{return JSON.parse(t);}catch(e){const m=String(t).match(/\{[\s\S]*\}/);if(m){try{return JSON.parse(m[0]);}catch(e2){}}throw new Error('Gemini ตอบกลับไม่ใช่ JSON ที่อ่านได้');}};
 async function geminiReceipt(b64,key){const cats=S.lists['หมวดรายจ่าย']||[];
@@ -220,7 +236,7 @@ async function geminiReceipt(b64,key){const cats=S.lists['หมวดราย�
   const body={contents:[{parts:[{text:prompt},{inline_data:{mime_type:'image/jpeg',data:b64}}]}],
     generationConfig:{temperature:0.1,responseMimeType:'application/json',responseSchema:{type:'OBJECT',properties:{date:{type:'STRING'},store:{type:'STRING'},total:{type:'NUMBER'},
       items:{type:'ARRAY',items:{type:'OBJECT',properties:{name:{type:'STRING'},qty:{type:'NUMBER'},price:{type:'NUMBER'}},required:['name','price']}},category:{type:'STRING',enum:cats.length?cats:undefined}},required:['total','items']}}};
-  const {j,model:m}=await geminiGenerate(key,body,{timeout:60000,maxModels:3,total:120000});let t='';try{t=j.candidates[0].content.parts.map(p=>p.text||'').join('');}catch(e){throw new Error('Gemini ไม่ส่งผลลัพธ์ ('+((j.promptFeedback&&j.promptFeedback.blockReason)||'ว่าง')+')');}const o=parseJsonLoose(t);
+  const {j,model:m}=await geminiGenerate(key,body,{timeout:60000,maxModels:4,total:120000});let t='';try{t=j.candidates[0].content.parts.map(p=>p.text||'').join('');}catch(e){throw new Error('Gemini ไม่ส่งผลลัพธ์ ('+((j.promptFeedback&&j.promptFeedback.blockReason)||'ว่าง')+')');}const o=parseJsonLoose(t);
   const d=/^\d{4}-\d{2}-\d{2}$/.test(o.date||'')?o.date:(parseReceipt(o.date||'').date||'');
   return {date:d,store:o.store||'',total:Number(o.total)||0,items:(o.items||[]).filter(i=>Number(i.price)>0).map(i=>({name:i.name,qty:Number(i.qty)||1,price:Number(i.price)})),
     category:cats.includes(o.category)?o.category:'',raw:t,engine:'🤖 Gemini ('+m+')'};}
@@ -245,7 +261,7 @@ function saveGemKey(){localStorage.removeItem(GMODEL);const v=cleanKey($('gemKey
 function showGemKey(){const k=geminiKey(),gm=localStorage.getItem(GMODEL);if($('gemState'))$('gemState').textContent=k?'มี key แล้ว: '+k.slice(0,4)+'•••••••'+k.slice(-4)+(gm?' · โมเดล: '+gm:''):'ยังไม่มี key (จะใช้ตัวอ่านในเครื่อง)';}
 async function testGemKey(){const k=cleanKey($('gemKey').value)||geminiKey();if(!k)return toast('ใส่ key ก่อนนะ');const st=$('gemState'),steps=[];
   GEM_STEP=m=>{steps.push(m);st.innerHTML=steps.map(esc).join('<br>');};GEM_STEP('⏳ เริ่มทดสอบ…');
-  try{localStorage.removeItem(GMODEL);localStorage.removeItem('hm_gemini_think');const {model}=await geminiGenerate(k,{contents:[{parts:[{text:'ตอบว่า ok'}]}],generationConfig:{maxOutputTokens:10,temperature:0}},{timeout:20000,maxModels:3,total:60000});GEM_STEP('✅ ใช้งานได้ · โมเดล: '+model);}
+  try{localStorage.removeItem(GMODEL);localStorage.removeItem('hm_gemini_cfg');const {model}=await geminiGenerate(k,{contents:[{parts:[{text:'ตอบว่า ok'}]}],generationConfig:{maxOutputTokens:64,temperature:0}},{timeout:30000,maxModels:4,total:90000});GEM_STEP('✅ ใช้งานได้ · โมเดล: '+model);}
   catch(e){GEM_STEP('❌ ใช้ไม่ได้: '+((e&&e.message)||e));}finally{GEM_STEP=()=>{};}}
 function renderScanForm(){const p=SCAN,t=S.today||todayStr_();
   $('scanForm').innerHTML=`${p.thumb?`<img class="rcpt" src="${p.thumb}" alt="ใบเสร็จ">`:''}<div class="demo">อ่านโดย: <b>${esc(p.engine||'')}</b>${p.why?`<br><small>${esc(p.why)}</small>`:''}<br>✨ ตรวจ/แก้ข้อมูลให้ถูกก่อนบันทึกนะ</div>

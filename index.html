@@ -447,6 +447,8 @@ input,select,textarea{border:2.5px solid #5A3A26;border-radius:14px 9px 15px 10p
       <input id="gemKey" type="password" autocomplete="off" placeholder="AIza…">
       <div class="foot" id="gemState" style="text-align:left;margin-top:6px"></div>
       <div class="row" style="margin-top:8px"><button class="btn mint" onclick="saveGemKey()">💾 บันทึก</button><button class="btn lav" onclick="testGemKey()">🧪 ทดสอบ</button></div>
+      <details style="margin-top:8px"><summary class="muted">🐞 ข้อมูลสำหรับแก้ปัญหา (ไม่มี key)</summary><pre id="gemDbg" style="white-space:pre-wrap;font-size:11px;max-height:240px;overflow:auto;background:#fff;padding:6px;border-radius:8px">(ยังไม่มี)</pre>
+      <button class="btn sm ghost" onclick="navigator.clipboard&&navigator.clipboard.writeText($('gemDbg').textContent).then(()=>toast('คัดลอกแล้ว 📋'),()=>toast('คัดลอกไม่ได้'))">📋 คัดลอก</button></details>
     </div>
     <div class="card"><h2>🔒 ความปลอดภัย</h2>
       <button class="btn full lav" onclick="lockApp()">🔒 ล็อกแอพ</button>
