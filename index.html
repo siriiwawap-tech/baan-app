@@ -311,6 +311,15 @@ input,select,textarea{border:2.5px solid #5A3A26;border-radius:14px 9px 15px 10p
 .urg button.on.uด่วน{background:#F7C6C0;border-style:solid}.urg button.on.uก่อนหมด{background:#FAD7B5;border-style:solid}.urg button.on.uปกติ{background:#D4EBC9;border-style:solid}
 .lowrow{padding:7px 2px;border-bottom:2px dashed rgba(90,58,38,.2);cursor:pointer}.lowrow:last-child{border:none}.lowrow b{font-weight:500}
 .lvsum{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+.brief-ul{list-style:none;margin:0;padding:0}.brief-ul li{padding:5px 2px;border-bottom:2px dashed rgba(90,58,38,.18);font-size:14.5px;line-height:1.35}.brief-ul li:last-child{border:none}
+.calhead{display:flex;align-items:center;gap:6px;margin-bottom:6px}.calhead h2{font-size:19px}
+.calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;touch-action:pan-y}
+.calgrid .dow{text-align:center;font-family:Itim;font-size:12px;color:var(--muted)}
+.calgrid .d{min-height:42px;border-radius:10px 8px 11px 9px;background:#FFF6E6;border:1.5px solid rgba(90,58,38,.15);display:flex;flex-direction:column;align-items:center;padding:3px 0;cursor:pointer;font-family:Itim;font-size:14px}
+.calgrid .d.o{opacity:.35}.calgrid .d.t{background:#F3DDB0;border:2.5px solid #A0522D}.calgrid .d.sun{color:#B5563A}
+.calgrid .dots{display:flex;gap:2px;flex-wrap:wrap;justify-content:center;margin-top:2px;max-width:30px}.calgrid .dots i{width:6px;height:6px;border-radius:50%;display:block}
+.calleg{display:flex;gap:8px;flex-wrap:wrap;font-size:11.5px;color:var(--muted);margin-top:6px}.calleg i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:3px}
+.dsec{margin:8px 0}.dsec h4{margin:4px 0;font-family:Itim;font-weight:400;font-size:16px}
 </style>
 </head>
 <body>
@@ -346,6 +355,10 @@ input,select,textarea{border:2.5px solid #5A3A26;border-radius:14px 9px 15px 10p
   </nav>
 
   <section class="page on" id="p-dash">
+    <div class="card brief"><h2>☀️ <span class="hl">สรุปวันนี้</span></h2><ul id="vBrief" class="brief-ul"></ul></div>
+    <div class="card cal"><div class="calhead"><button class="btn sm ghost" onclick="calMove(-1)">◀</button><h2 id="calTitle" style="margin:0;flex:1;justify-content:center"></h2><button class="btn sm ghost" onclick="calMove(1)">▶</button></div>
+      <div id="calGrid" class="calgrid"></div>
+      <div class="calleg"><span><i style="background:#D9483B"></i>บิล</span><span><i style="background:#6FB36B"></i>งานบ้าน</span><span><i style="background:#F2C94C"></i>เมนู</span><span><i style="background:#8A5A3B"></i>รายจ่าย</span><span><i style="background:#5B8FD0"></i>เตือน</span></div></div>
     <div class="sumrow">
       <div class="card wk"><h2>📅 <span class="hl">สัปดาห์นี้</span></h2><div id="vWeek"></div></div>
       <div class="bigscan"><span class="cam">📷</span><b>สแกนบิล</b>

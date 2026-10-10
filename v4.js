@@ -388,6 +388,7 @@ exportXlsx=function(){if(typeof XLSX==='undefined')return toast('😿 โหล�
     months.forEach(mo=>{MEM().map(m=>m.name).concat(['(ไม่ระบุ)']).forEach(n=>{const f=(t,k)=>sumAmt(DB.led.filter(r=>r['ประเภท']===t&&String(r['วันที่']).startsWith(mo)&&(r[k]||'(ไม่ระบุ)')===n));
       const a=f('รายจ่าย','ของใคร/จ่ายให้ใคร'),b=f('รายจ่าย','จ่ายโดย'),c=f('รายรับ','เงินจากใคร');if(a||b||c)rows.push({'เดือน':mo,'สมาชิก':n,'รายจ่ายของ/ให้':a,'เป็นคนจ่าย':b,'รายรับจาก':c});});});
     XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows.length?rows:[{'(ว่าง)':''}]),'สรุปตามสมาชิก');
+    const rm=(DB.rem||[]).map(r=>{const o=Object.assign({},r);delete o._row;return o;});XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rm.length?rm:[{'(ว่าง)':''}]),'การเตือน');
     return orig.call(XLSX,wb,name);};
   try{_xlsx();}finally{XLSX.writeFile=orig;}};
 
@@ -425,7 +426,7 @@ function syncPayload(){const T=a=>(a||[]).map(noImg);
   const mem=(DB.members||[]).map(m=>({'ชื่อ':m.name,'ประเภท':m.kind==='business'?'กิจการ':'บุคคล','อีโมจิ':m.emoji,'มีรูป':m.photo?'✔':''}));
   const backup=JSON.stringify(DB,(k,v)=>typeof v==='string'&&v.startsWith('data:image/')?'':v);
   return {secret:syGet('code'),action:'save',tables:{'บัญชีรับจ่าย':T(LOCAL.getLedger(1e9)),'คลังของ':T(LOCAL.getInventory()),'สมาชิก':mem,'เมนู':T(clone(DB.menu).sort((a,b)=>String(a['วันที่']).localeCompare(String(b['วันที่'])))),
-    'งานบ้าน':T(LOCAL.getTodos()),'ชอปปิ้ง':T(LOCAL.getShopping()),'บิล':T(LOCAL.getBills(true)),'ออม':T(DB.sav),'หนี้':T(DB.debt.map(debtCalc)),'ประวัติจ่ายหนี้':T(DB.debtlog),'สรุป':sum},backup};}
+    'งานบ้าน':T(LOCAL.getTodos()),'ชอปปิ้ง':T(LOCAL.getShopping()),'บิล':T(LOCAL.getBills(true)),'ออม':T(DB.sav),'หนี้':T(DB.debt.map(debtCalc)),'ประวัติจ่ายหนี้':T(DB.debtlog),'การเตือน':T(DB.rem||[]),'สรุป':sum},backup};}
 async function syncPost(obj,ms){const u=syGet('url');if(!/^https:\/\/.+/.test(u)&&!/^http:\/\/localhost/.test(u))throw new Error('ยังไม่ได้ใส่ Web app URL');if(!syGet('code'))throw new Error('ยังไม่ได้ใส่รหัสซิงค์');
   const ac=new AbortController(),t=setTimeout(()=>ac.abort(),ms||30000);
   try{const r=await fetch(u,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(obj),redirect:'follow',signal:ac.signal});
@@ -584,3 +585,64 @@ function renderHomeLow(){ensureInvLinks();const L=sortedInv().filter(x=>x.L.lv!=
   if(g)g.innerHTML=`${DB.inv.length} รายการ · 🔴${c('red')} 🟠${c('orange')} 🟡${c('yellow')}`;};LOADERS.all=loadAll;}
 ensureInvLinks();
 setTimeout(renderHomeLow,50);
+
+/* ---------- ☀️ daily brief + 📅 calendar + reminders ---------- */
+if(!TABLES.includes('rem'))TABLES.push('rem');DB.rem=DB.rem||[];
+const REP=['ไม่ซ้ำ','รายสัปดาห์','รายเดือน','รายปี'];
+function remOn(r,d){const b=r['วันที่'];if(!b||d<b)return false;const rp=r['ทำซ้ำ']||'ไม่ซ้ำ';
+  if(rp==='รายสัปดาห์')return dayDiff(d,b)%7===0;if(rp==='รายเดือน')return d.slice(8)===b.slice(8);if(rp==='รายปี')return d.slice(5)===b.slice(5);return d===b;}
+function dayInfo(d){const bills=DB.util.filter(b=>b['วันครบกำหนด']===d),chores=LOCAL.getTodos().filter(t=>t['กำหนดทำ']===d&&t['สถานะ']!=='เสร็จแล้ว'),
+  menu=DB.menu.find(m=>m['วันที่']===d&&(m['มื้อเช้า']||m['มื้อกลางวัน']||m['มื้อเย็น'])),exp=DB.led.filter(r=>r['วันที่']===d&&r['ประเภท']==='รายจ่าย'),rem=(DB.rem||[]).filter(r=>remOn(r,d));
+  return {bills,chores,menu,exp,rem};}
+function renderBrief(){const t=S.today||todayStr_(),tm=addDays(t,1),L=[];
+  const bills=LOCAL.getBills(true).filter(b=>!b['ชำระแล้ว']&&b['วันครบกำหนด']&&b['วันครบกำหนด']<=addDays(t,3));
+  const od=bills.filter(b=>b['วันครบกำหนด']<t),soon=bills.filter(b=>b['วันครบกำหนด']>=t);
+  const bn=b=>esc(b['ประเภทบิล'])+(num_(b['จำนวนเงิน (บาท)'])?' '+baht(b['จำนวนเงิน (บาท)']):'');
+  if(od.length)L.push(`🚨 บิลเลยกำหนด ${od.length} ใบ: ${od.slice(0,2).map(bn).join(', ')} รีบจ่ายนะ`);
+  if(soon.length)L.push(`🧾 บิลใกล้ครบ: ${soon.slice(0,3).map(b=>bn(b)+' ('+(b['วันครบกำหนด']===t?'วันนี้':thDate(b['วันครบกำหนด']))+')').join(', ')}`);
+  const rm=[...(DB.rem||[]).filter(r=>remOn(r,t)).map(r=>['วันนี้',r]),...(DB.rem||[]).filter(r=>remOn(r,tm)).map(r=>['พรุ่งนี้',r])];
+  if(rm.length)L.push(`🔔 ${rm.slice(0,3).map(([w,r])=>esc(r['หัวข้อ'])+' ('+w+(r['เวลา']?' '+esc(r['เวลา']):'')+')').join(', ')}`);
+  const debts=DB.debt.map(debtCalc).filter(x=>x['เงินต้นคงเหลือ']>0&&num_(x['ครบกำหนดทุกวันที่'])).filter(x=>{const dd=num_(x['ครบกำหนดทุกวันที่']);for(let i=0;i<=3;i++){if(Number(addDays(t,i).slice(8))===dd)return true;}return false;});
+  if(debts.length)L.push(`💳 ใกล้ถึงวันจ่ายหนี้: ${debts.slice(0,2).map(x=>esc(x['เจ้าหนี้'])+' '+baht(x['ค่างวด/เดือน'])).join(', ')}`);
+  const td=LOCAL.getTodos().filter(x=>x['สถานะ']==='วันนี้'||x['สถานะ']==='เกินกำหนด');if(td.length){const o=td.filter(x=>x['สถานะ']==='เกินกำหนด').length;L.push(`🧹 งานบ้านวันนี้ ${td.length} งาน${o?' (เลยกำหนด '+o+')':''}: ${td.slice(0,2).map(x=>esc(x['งาน'])).join(', ')}`);}
+  const st=sortedInv().filter(x=>x.L.lv==='red'||x.L.lv==='orange');if(st.length)L.push(`🛒 ของต้องซื้อ ${st.length} อย่าง: ${st.slice(0,3).map(x=>esc(x.r['รายการ'])).join(', ')}${st.length>3?'…':''}`);
+  const mn=LOCAL.getMenu(t,1)[0];if(mn['มื้อเย็น']||mn['มื้อกลางวัน']||mn['มื้อเช้า'])L.push(`🍳 เมนูวันนี้: ${esc(mn['มื้อเย็น']?'เย็น '+mn['มื้อเย็น']:mn['มื้อกลางวัน']?'กลางวัน '+mn['มื้อกลางวัน']:'เช้า '+mn['มื้อเช้า'])}`);
+  const mon=mondayOf(t),k=dayDiff(t,mon),E=DB.led.filter(r=>r['ประเภท']==='รายจ่าย'),sum=(a,b)=>E.filter(r=>r['วันที่']>=a&&r['วันที่']<=b).reduce((s,r)=>s+num_(r['จำนวนเงิน (บาท)']),0);
+  const cw=sum(mon,t),lw=sum(addDays(mon,-7),addDays(mon,k-7));if(cw||lw)L.push(`💸 สัปดาห์นี้ใช้ไป ${baht(cw)} ${lw?(cw<=lw?'น้อยกว่า':'มากกว่า')+'สัปดาห์ก่อน (ช่วงเดียวกัน) '+baht(Math.abs(cw-lw))+(cw<=lw?' 👍':' 🥺'):''}`);
+  $('vBrief').innerHTML=(L.length?L.slice(0,5):['🌈 วันนี้ชิล ๆ ไม่มีอะไรค้าง ขอให้เป็นวันที่ดีนะ 🐣']).map(x=>`<li>${x}</li>`).join('');}
+S.calM=null;
+function calMove(n){const [y,m]=S.calM.split('-').map(Number);const d=new Date(y,m-1+n,1);S.calM=d.getFullYear()+'-'+pad(d.getMonth()+1);renderCal();}
+function renderCal(){if(!$('calGrid'))return;const t=S.today||todayStr_();S.calM=S.calM||t.slice(0,7);const [y,m]=S.calM.split('-').map(Number);
+  $('calTitle').textContent='📅 '+new Date(y,m-1,1).toLocaleDateString('th-TH',{month:'long'})+' '+(y+543);
+  const first=new Date(y,m-1,1),start=addDays(ymd(first),-first.getDay());let h=['อา','จ','อ','พ','พฤ','ศ','ส'].map(x=>`<div class="dow">${x}</div>`).join('');
+  for(let i=0;i<42;i++){const d=addDays(start,i);if(i>=35&&d.slice(0,7)!==S.calM)break;const I=dayInfo(d),dots=[];
+    if(I.bills.length)dots.push('#D9483B');if(I.chores.length)dots.push('#6FB36B');if(I.menu)dots.push('#F2C94C');if(I.exp.length)dots.push('#8A5A3B');if(I.rem.length)dots.push('#5B8FD0');
+    h+=`<div class="d ${d.slice(0,7)!==S.calM?'o':''} ${d===t?'t':''} ${i%7===0?'sun':''}" onclick="openDay('${d}')">${Number(d.slice(8))}<div class="dots">${dots.map(c=>`<i style="background:${c}"></i>`).join('')}</div></div>`;}
+  $('calGrid').innerHTML=h;}
+{let x0=null;document.addEventListener('touchstart',e=>{if(e.target.closest&&e.target.closest('#calGrid'))x0=e.touches[0].clientX;},{passive:true});
+ document.addEventListener('touchend',e=>{if(x0==null)return;const dx=e.changedTouches[0].clientX-x0;x0=null;if(Math.abs(dx)>50)calMove(dx<0?1:-1);},{passive:true});}
+function openDay(d){const I=dayInfo(d);const sec=(t,arr)=>arr.length?`<div class="dsec"><h4>${t}</h4>${arr.join('')}</div>`:'';
+  const it=(a,b,c)=>`<div class="item"><div class="t"><b>${a}</b>${b?`<small>${b}</small>`:''}</div>${c||''}</div>`;
+  openModal(`<h3>📅 ${thDate(d,{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</h3>
+  ${sec('🔔 การเตือน',I.rem.map(r=>it(esc(r['หัวข้อ']),[r['เวลา'],r['ทำซ้ำ']!=='ไม่ซ้ำ'?r['ทำซ้ำ']:'',r['หมายเหตุ']].filter(Boolean).map(esc).join(' · '),`<button class="btn sm ghost" onclick="editRem(${r._row},'${d}')">✏️</button><button class="btn sm ghost" onclick="delRem(${r._row},'${d}')">🗑️</button>`)))}
+  ${sec('🧾 บิลครบกำหนด',I.bills.map(b=>it(esc(b['ประเภทบิล']),(num_(b['จำนวนเงิน (บาท)'])?baht(b['จำนวนเงิน (บาท)']):'ยังไม่ใส่ยอด')+(b['ชำระแล้ว']?' · ✅ จ่ายแล้ว':' · ยังไม่จ่าย'))))}
+  ${sec('🧹 งานบ้าน',I.chores.map(c=>it(esc(c['งาน']),esc(c['ผู้รับผิดชอบ']||''))))}
+  ${I.menu?sec('🍳 เมนู',[it(['มื้อเช้า','มื้อกลางวัน','มื้อเย็น'].filter(k=>I.menu[k]).map(k=>k.replace('มื้อ','')+': '+esc(I.menu[k])).join(' · '))]):''}
+  ${sec('💸 รายจ่าย ('+baht(sumAmt(I.exp))+')',I.exp.map(r=>it(esc(r['รายการ']||r['หมวดหมู่']),esc(r['หมวดหมู่']),`<span class="money out-c">${baht(r['จำนวนเงิน (บาท)'])}</span>`)))}
+  ${!I.rem.length&&!I.bills.length&&!I.chores.length&&!I.menu&&!I.exp.length?emptyMsg('🌤️','วันนี้ยังว่างอยู่'):''}
+  <button class="btn full" onclick="editRem(0,'${d}')">＋ เพิ่มการเตือน</button><button class="btn full ghost" onclick="closeModal()">ปิด</button>`);}
+function editRem(row,d){const r=(DB.rem||[]).find(x=>x._row===row)||{'วันที่':d,'ทำซ้ำ':'ไม่ซ้ำ'};
+  openModal(`<h3>${row?'✏️ แก้ไขการเตือน':'🔔 เพิ่มการเตือน'}</h3><label>หัวข้อ</label><input id="rmT" value="${esc(r['หัวข้อ']||'')}" placeholder="เช่น วันเกิดยาย 🎂">
+  <div class="row"><div><label>วันที่</label><input id="rmD" type="date" value="${esc(r['วันที่']||d)}"></div><div style="flex:0 0 105px"><label>เวลา (ถ้ามี)</label><input id="rmTm" type="time" value="${esc(r['เวลา']||'')}"></div></div>
+  <label>ทำซ้ำ</label><select id="rmR">${opts(REP,r['ทำซ้ำ']||'ไม่ซ้ำ')}</select><label>หมายเหตุ</label><input id="rmN" value="${esc(r['หมายเหตุ']||'')}">
+  ${'Notification' in window&&Notification.permission!=='granted'?`<button class="btn full lav" onclick="Notification.requestPermission().then(p=>toast(p==='granted'?'เปิดการแจ้งเตือนแล้ว 🔔':'ไม่ได้อนุญาตการแจ้งเตือน'))">🔔 เปิดการแจ้งเตือนในเครื่อง</button>`:''}
+  <button class="btn full" onclick="saveRem(${row||0},'${d}')">💾 บันทึก</button><button class="btn full ghost" onclick="openDay('${d}')">ยกเลิก</button>`);}
+function saveRem(row,d){const t=$('rmT').value.trim();if(!t)return toast('ใส่หัวข้อก่อนนะ');let r=DB.rem.find(x=>x._row===row);if(!r){r={_row:newId()};DB.rem.push(r);}
+  Object.assign(r,{'หัวข้อ':t,'วันที่':$('rmD').value||d,'เวลา':$('rmTm').value,'ทำซ้ำ':$('rmR').value,'หมายเหตุ':$('rmN').value});persist();toast('บันทึกการเตือนแล้ว 🔔');renderCal();renderBrief();openDay(r['วันที่']);}
+function delRem(row,d){if(!confirm('ลบการเตือนนี้?'))return;DB.rem=DB.rem.filter(x=>x._row!==row);persist();renderCal();renderBrief();openDay(d);}
+function notifyToday(){try{if(!('Notification' in window)||Notification.permission!=='granted')return;const t=todayStr_(),k='hm_notified_'+t;if(localStorage.getItem(k))return;
+  const R=(DB.rem||[]).filter(r=>remOn(r,t));if(!R.length)return;localStorage.setItem(k,'1');const body=R.map(r=>(r['เวลา']?r['เวลา']+' ':'')+r['หัวข้อ']).join('\n');
+  const show=reg=>reg&&reg.showNotification?reg.showNotification('🔔 วันนี้มีเรื่องต้องจำ',{body,icon:'icon-192.png'}):new Notification('🔔 วันนี้มีเรื่องต้องจำ',{body,icon:'icon-192.png'});
+  if(navigator.serviceWorker&&navigator.serviceWorker.getRegistration)navigator.serviceWorker.getRegistration().then(show).catch(()=>show(null));else show(null);}catch(e){}}
+{const _ld2=loadDash;loadDash=function(){_ld2();setTimeout(()=>{renderBrief();renderCal();},0);};LOADERS.dash=loadDash;}
+setTimeout(()=>{renderBrief();renderCal();notifyToday();},60);
