@@ -442,6 +442,15 @@ input,select,textarea{border:2.5px solid #5A3A26;border-radius:14px 9px 15px 10p
       <button class="btn full ghost" onclick="clearSample()">🧹 ลบเฉพาะข้อมูลตัวอย่าง</button>
       <button class="btn full ghost" style="color:#d32f2f" onclick="wipeAll()">🗑️ ล้างข้อมูลทั้งหมด</button>
     </div>
+    <div class="card" id="syncCard"><h2>📗 บันทึกลง Google Sheet</h2>
+      <p class="muted">ซิงค์ข้อมูลทั้งหมดไปเก็บในชีตของคุณเองอัตโนมัติ (ไม่รวมรูป)</p>
+      <label>Web app URL</label><input id="syUrl" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off">
+      <label>รหัสซิงค์</label><input id="syCode" placeholder="จากแท็บ ตั้งค่า ในชีต" autocomplete="off">
+      <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" class="chk" id="syAuto" onchange="syncSaveCfg()"> ซิงค์อัตโนมัติเมื่อข้อมูลเปลี่ยน</label>
+      <div class="foot" id="syState" style="text-align:left"></div>
+      <div class="row" style="margin-top:8px"><button class="btn sm lav" onclick="syncSaveCfg();syncTest()">🧪 ทดสอบ</button><button class="btn sm mint" onclick="syncSaveCfg();syncNow(true)">🔄 ซิงค์ตอนนี้</button><button class="btn sm ghost" onclick="syncRestore()">⬇️ ดึงข้อมูลกลับ</button></div>
+      <details style="margin-top:8px"><summary class="muted">📖 วิธีตั้งค่า (ครั้งเดียว ~5 นาที)</summary><ol style="padding-left:20px;font-size:13.5px;line-height:1.5"><li>เปิด sheets.new สร้าง Google Sheet ใหม่ ตั้งชื่อ เช่น “บ้านของเรา”</li><li>เมนู ส่วนขยาย (Extensions) › Apps Script</li><li>ลบโค้ดเดิมทั้งหมด แล้ววางโค้ดจาก <a href="sheet-sync.gs" target="_blank">sheet-sync.gs</a> กด 💾 บันทึก</li><li>เลือกฟังก์ชัน setup ด้านบน › กด Run › อนุญาตสิทธิ์ (Advanced › Go to … › Allow) › รหัสซิงค์จะอยู่ในแท็บ “ตั้งค่า” ของชีต</li><li>Deploy › New deployment › ⚙️ เลือก Web app › Execute as: Me › Who has access: Anyone › Deploy › คัดลอก Web app URL (ลงท้าย /exec)</li><li>กลับมาที่แอพ ⚙️ ตั้งค่า › 📗 ใส่ URL + รหัสซิงค์ › 🧪 ทดสอบ › 🔄 ซิงค์ตอนนี้ เสร็จแล้ว! แอพจะบันทึกลงชีตอัตโนมัติ</li></ol><p class="muted" style="font-size:12.5px">หมายเหตุ: ถ้าแก้โค้ดสคริปต์ภายหลัง ต้อง Deploy › Manage deployments › ✏️ › Version: New version</p></details>
+    </div>
     <div class="card"><h2>🤖 Gemini API key</h2>
       <p class="muted">ใส่ key เพื่อให้สแกนบิลแม่นขึ้น (อ่านบิลลายมือได้) · เก็บเฉพาะในเครื่องนี้ ส่งรูปบิลตรงไปที่ Google เท่านั้น · ขอ key ฟรีที่ aistudio.google.com</p>
       <input id="gemKey" type="password" autocomplete="off" placeholder="AIza…">

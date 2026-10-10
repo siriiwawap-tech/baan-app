@@ -314,3 +314,47 @@ async function hardRefresh(){const b=$('refBtn');b.classList.add('spin');b.textC
   sessionStorage.setItem('hm_updated','1');location.reload();}
 if(sessionStorage.getItem('hm_updated')){sessionStorage.removeItem('hm_updated');setTimeout(()=>toast('อัปเดตแล้ว ✨'),400);}
 loadDash();
+
+/* ---------- 📗 Google Sheet sync (Apps Script web app) ---------- */
+const SY={url:'hm_sync_url',code:'hm_sync_code',auto:'hm_sync_auto',last:'hm_sync_last',pend:'hm_sync_pending'};
+const syGet=k=>{try{return localStorage.getItem(SY[k])||'';}catch(e){return '';}};
+let syTimer=null,syBusy=false,syRetry=null;
+function syncSaveCfg(){if(!$('syUrl'))return;localStorage.setItem(SY.url,$('syUrl').value.trim());localStorage.setItem(SY.code,$('syCode').value.trim());localStorage.setItem(SY.auto,$('syAuto').checked?'1':'0');syncShow();}
+function syncAutoOn(){return syGet('auto')!=='0';}
+function syncShow(m){const el=$('syState');if(!el)return;const l=syGet('last');
+  el.textContent=(m?m+' · ':'')+(l?'ซิงค์ล่าสุด '+new Date(l).toLocaleString('th-TH',{dateStyle:'short',timeStyle:'short'}):'ยังไม่เคยซิงค์')+(syGet('pend')==='1'?' · ⏳ รอส่ง':'');}
+function syncLoadUI(){if(!$('syUrl'))return;$('syUrl').value=syGet('url');$('syCode').value=syGet('code');$('syAuto').checked=syncAutoOn();syncShow();}
+const noImg=o=>{const r={};Object.keys(o).forEach(k=>{if(k==='_row')return;const v=o[k];if(typeof v==='string'&&v.startsWith('data:image/')){r[k==='ใบเสร็จ'?'มีรูปบิล':k==='photo'?'มีรูป':k+' (มีรูป)']='✔';}else r[k]=v;});return r;};
+function syncPayload(){const T=a=>(a||[]).map(noImg);
+  const sum=LOCAL.getSummary('month').map(r=>Object.assign({'เดือน':r.k,'รายรับ':r.inc,'รายจ่าย':r.exp,'คงเหลือ':r.inc-r.exp},r.cats));
+  const mem=(DB.members||[]).map(m=>({'ชื่อ':m.name,'ประเภท':m.kind==='business'?'กิจการ':'บุคคล','อีโมจิ':m.emoji,'มีรูป':m.photo?'✔':''}));
+  const backup=JSON.stringify(DB,(k,v)=>typeof v==='string'&&v.startsWith('data:image/')?'':v);
+  return {secret:syGet('code'),action:'save',tables:{'บัญชีรับจ่าย':T(LOCAL.getLedger(1e9)),'คลังของ':T(LOCAL.getInventory()),'สมาชิก':mem,'เมนู':T(clone(DB.menu).sort((a,b)=>String(a['วันที่']).localeCompare(String(b['วันที่'])))),
+    'งานบ้าน':T(LOCAL.getTodos()),'ชอปปิ้ง':T(LOCAL.getShopping()),'บิล':T(LOCAL.getBills(true)),'ออม':T(DB.sav),'หนี้':T(DB.debt.map(debtCalc)),'ประวัติจ่ายหนี้':T(DB.debtlog),'สรุป':sum},backup};}
+async function syncPost(obj,ms){const u=syGet('url');if(!/^https:\/\/.+/.test(u)&&!/^http:\/\/localhost/.test(u))throw new Error('ยังไม่ได้ใส่ Web app URL');if(!syGet('code'))throw new Error('ยังไม่ได้ใส่รหัสซิงค์');
+  const ac=new AbortController(),t=setTimeout(()=>ac.abort(),ms||30000);
+  try{const r=await fetch(u,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(obj),redirect:'follow',signal:ac.signal});
+    const txt=await r.text();let j;try{j=JSON.parse(txt);}catch(e){throw new Error(/<html/i.test(txt)?'ได้หน้าเว็บแทน JSON – ตรวจว่า Deploy เป็น Web app และตั้ง Access: Anyone':'ตอบกลับอ่านไม่ได้ (HTTP '+r.status+')');}
+    if(!j.ok)throw new Error(j.error||'ผิดพลาด');return j;}
+  catch(e){if(e.name==='AbortError')throw new Error('หมดเวลาเชื่อมต่อ');if(e instanceof TypeError)throw new Error('เชื่อมต่อไม่ได้ (ออฟไลน์หรือ URL ผิด)');throw e;}finally{clearTimeout(t);}}
+async function syncTest(){syncShow('⏳ กำลังทดสอบ…');try{const j=await syncPost({secret:syGet('code'),action:'ping'},20000);syncShow('✅ เชื่อมต่อชีต “'+(j.sheet||'')+'” ได้');toast('เชื่อมต่อ Google Sheet ได้ 📗');}catch(e){syncShow('❌ '+e.message);}}
+async function syncNow(manual){if(!syGet('url')||!syGet('code')){if(manual)syncShow('❌ ใส่ URL และรหัสก่อนนะ');return;}
+  if(syBusy){localStorage.setItem(SY.pend,'1');return;}
+  if(navigator.onLine===false){localStorage.setItem(SY.pend,'1');syncShow('📴 ออฟไลน์ – จะส่งเมื่อมีเน็ต');return;}
+  syBusy=true;localStorage.setItem(SY.pend,'0');if(manual)syncShow('⏳ กำลังซิงค์…');
+  try{const j=await syncPost(syncPayload(),60000);localStorage.setItem(SY.last,j.savedAt||new Date().toISOString());clearTimeout(syRetry);syRetry=null;syncShow('✅ ซิงค์แล้ว');if(manual)toast('บันทึกลงชีตแล้ว 📗');}
+  catch(e){localStorage.setItem(SY.pend,'1');syncShow('❌ '+e.message);clearTimeout(syRetry);syRetry=setTimeout(()=>syncNow(false),60000);}
+  finally{syBusy=false;if(syGet('pend')==='1'&&!syRetry)scheduleSync();}}
+function scheduleSync(){if(!syncAutoOn()||!syGet('url')||!syGet('code'))return;localStorage.setItem(SY.pend,'1');clearTimeout(syTimer);syTimer=setTimeout(()=>{syTimer=null;syncNow(false);},5000);}
+async function syncRestore(){syncSaveCfg();if(!confirm('ดึงข้อมูลจาก Google Sheet มาแทนข้อมูลในเครื่องนี้? (ข้อมูลเดิมจะถูกเก็บสำรองไว้ในเครื่อง)'))return;syncShow('⏳ กำลังดึงข้อมูล…');
+  try{const j=await syncPost({secret:syGet('code'),action:'get'},60000);const d=j.data;if(!d||!d.v||!Array.isArray(d.led))throw new Error('ในชีตยังไม่มีข้อมูลสำรอง');
+    localStorage.setItem(LS_KEY+'.beforeRestore',JSON.stringify(DB));
+    const imgs={};DB.led.forEach(r=>{if(r['ใบเสร็จ'])imgs[r._row]=r['ใบเสร็จ'];});const ph={};(DB.members||[]).forEach(m=>{if(m.photo)ph[m.id]=m.photo;});
+    d.led.forEach(r=>{if(!r['ใบเสร็จ']&&imgs[r._row])r['ใบเสร็จ']=imgs[r._row];});(d.members||[]).forEach(m=>{if(!m.photo&&ph[m.id])m.photo=ph[m.id];});
+    localStorage.setItem(LS_KEY,JSON.stringify(d));toast('ดึงข้อมูลกลับแล้ว ✨');setTimeout(()=>location.reload(),600);}
+  catch(e){syncShow('❌ '+e.message);}}
+{const _p=persist;persist=function(){_p();scheduleSync();};}
+window.addEventListener('online',()=>{if(syGet('pend')==='1')syncNow(false);});
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&syncAutoOn()&&syGet('url'))syncNow(false);});
+{const _ls=loadSet;loadSet=function(){_ls();syncLoadUI();};LOADERS.set=loadSet;}
+if(syncAutoOn()&&syGet('url')&&syGet('code'))setTimeout(()=>syncNow(false),2500);
