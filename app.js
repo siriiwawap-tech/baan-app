@@ -20,15 +20,12 @@ const badge=s=>{const m={'ปกติ':'b-ok','ใกล้หมด':'b-warn',
 
 /* ---------------- Tabs ---------------- */
 const LOADERS={dash:loadDash,ledger:loadLedger,inv:loadInv,menu:loadMenu,todo:loadTodo,shop:loadShop,bills:loadBills,money:loadMoney,sum:loadSum,set:loadSet};
-$('tabs').addEventListener('click',e=>{const b=e.target.closest('.tab');if(!b)return;
-  document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x===b));
-  document.querySelectorAll('.page').forEach(p=>p.classList.toggle('on',p.id==='p-'+b.dataset.p));
-  LOADERS[b.dataset.p]();});
+/* nav handled in v4.js */
 
 /* ---------------- Init ---------------- */
 function boot(){ api('getInit').then(r=>{
   S.lists=r.lists; S.today=r.today; S.weekStart=mondayOf(r.today);
-  $('todayTxt').textContent='สวัสดีค่ะ 🌷 วัน'+thDate(r.today,{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  $('todayTxt').textContent='สวัสดีค่ะ 🌷 '+thDate(r.today,{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   if(r.sheetUrl) $('sheetLink').href=r.sheetUrl;
   if(!IS_GAS) $('demoNote').innerHTML='<div class="demo">👀 โหมดตัวอย่าง (พรีวิว) – เมื่อ Deploy จริงจะเชื่อมกับชีตของคุณ</div>';
   $('lDate').value=r.today; $('lMethod').innerHTML=opts(S.lists['วิธีชำระ']||[]);
@@ -118,7 +115,7 @@ function menuShop(i){saveMenu(i).then(()=>api('menuToShopping',MENU[i]['วั�
 let TODO=[];
 function todoRow(t){const done=t['สถานะ']==='เสร็จแล้ว';return `<div class="item ${done?'done':''}"><input type="checkbox" class="chk" ${done?'checked':''} onchange="tickTodo(${t._row},this.checked)">
   <div class="t"><b>${esc(t['งาน'])}</b><small>${esc(t['ผู้รับผิดชอบ']||'')} · ${esc(t['ความถี่']||'')}${t['กำหนดทำ']?' · '+thDate(t['กำหนดทำ']):''}</small></div>${badge(t['สถานะ'])}</div>`;}
-function tickTodo(row,v){api('toggleTodo',row,v).then(()=>{toast(v?'เก่งมาก! 🌟':'ยกเลิกแล้ว');const p=document.querySelector('.tab.on').dataset.p;LOADERS[p]();});}
+function tickTodo(row,v){api('toggleTodo',row,v).then(()=>{toast(v?'เก่งมาก! 🌟':'ยกเลิกแล้ว');const p=S.page;LOADERS[p]();});}
 function loadTodo(){api('getTodos').then(rows=>{TODO=rows;
   const fs=['ต้องทำ','รายวัน','รายสัปดาห์','รายเดือน','ทั้งหมด'];
   $('todoFilter').innerHTML=fs.map(f=>`<button class="chip ${f===S.todoF?'on':''}" onclick="S.todoF='${f}';loadTodo()">${esc(f)}</button>`).join('');
@@ -154,7 +151,7 @@ function tickShop(row,v){if(!v){api('toggleShopping',row,false,{}).then(loadShop
    <button class="btn full" onclick="confirmBought(${row})">✅ ยืนยัน</button><button class="btn full ghost" onclick="closeModal();loadShop()">ยกเลิก</button>`);}
 function confirmBought(row){api('toggleShopping',row,true,{price:$('bPrice').value,method:$('bMethod').value,toLedger:$('bLed').checked,toInventory:$('bInv').checked}).then(()=>{closeModal();toast('ซื้อแล้ว เย้! 🎉');loadShop();});}
 function clearBought(){api('clearBought').then(r=>{toast('ล้าง '+(r.removed||0)+' รายการ 🧹');loadShop();});}
-function lowToShop(){api('lowStockToShopping').then(r=>{toast('เพิ่ม '+(r.added||0)+' รายการลงลิสต์ 🛒');if(document.querySelector('.tab.on').dataset.p==='shop')loadShop();});}
+function lowToShop(){api('lowStockToShopping').then(r=>{toast('เพิ่ม '+(r.added||0)+' รายการลงลิสต์ 🛒');if(S.page==='shop')loadShop();});}
 
 /* ---------------- Bills ---------------- */
 function billRow(b){const paid=b['ชำระแล้ว']===true;const ic={'ค่าน้ำดื่ม':'💧','ค่าไฟ':'💡','ค่าเน็ต':'📶'}[b['ประเภทบิล']]||'🧾';
@@ -168,7 +165,7 @@ function editBill(row){const b=BILLS.find(x=>x._row===row);if(!b)return;
   <label>วันครบกำหนด</label><input id="ebDue" type="date" value="${esc(b['วันครบกำหนด'])}"><button class="btn full" onclick="saveBill(${row})">💾 บันทึก</button>`);}
 function saveBill(row){api('saveBill',{_row:row,'จำนวนเงิน (บาท)':$('ebAmt').value,'วันครบกำหนด':$('ebDue').value}).then(()=>{closeModal();toast('บันทึกแล้ว');loadBills();});}
 function payBill(row,v){const rec=v?confirm('บันทึกเป็นรายจ่ายในบัญชีด้วยไหม?'):false;
-  api('payBill',row,v,rec).then(()=>{toast(v?'จ่ายแล้ว 💖':'ยกเลิกแล้ว');const p=document.querySelector('.tab.on').dataset.p;LOADERS[p]();});}
+  api('payBill',row,v,rec).then(()=>{toast(v?'จ่ายแล้ว 💖':'ยกเลิกแล้ว');const p=S.page;LOADERS[p]();});}
 
 /* ---------------- Money ---------------- */
 let DEBTS=[];
@@ -195,7 +192,7 @@ function confirmDebt(i){api('addDebtPayment',{creditor:DEBTS[i]['เจ้าห
 /* ================= Standalone additions / overrides ================= */
 function boot(){ api('getInit').then(r=>{
   S.lists=r.lists; S.today=r.today; S.weekStart=mondayOf(r.today); S.cat=(S.lists['หมวดรายจ่าย']||[])[0];
-  $('todayTxt').textContent='สวัสดีค่ะ 🌷 วัน'+thDate(r.today,{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  $('todayTxt').textContent='สวัสดีค่ะ 🌷 '+thDate(r.today,{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   refreshSelects(); renderCats(); loadDash();
   if(!DB.led.length&&!DB.inv.length&&!DB.todo.length) $('demoNote').innerHTML='<div class="demo">🌱 ยังไม่มีข้อมูล เริ่มจดได้เลย หรือดูตัวอย่างที่ ⚙️ ตั้งค่า → ใส่ข้อมูลตัวอย่าง</div>';
   else $('demoNote').innerHTML='';

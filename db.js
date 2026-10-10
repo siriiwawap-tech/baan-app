@@ -174,3 +174,24 @@ const LOCAL={
     const ef=savBalances().find(x=>x[0]==='เงินสำรองฉุกเฉิน');
     return {inc,need,want,save:Math.max(0,savM)+debtM,pct:s.budget,avgExp:avg,efMonths:num_(s.efMonths)||6,efHave:ef?ef[1]:0,avgBasis:hist.length?hist.length+' เดือนก่อน':'เดือนนี้'};}
 };
+
+/* ---------- v4 migration: members (never wipes existing data) ---------- */
+const DEFAULT_MEMBERS=[['พ่อ','👨'],['แม่','👩'],['ว่าน','👦'],['คิว','🧒'],['ยาย','👵'],['โต๋','🧑'],['กิจการเรียนพิเศษ','📚','business']];
+(function migrateV4(){let ch=false;
+  if(!Array.isArray(DB.members)){DB.members=DEFAULT_MEMBERS.map(m=>({id:newId(),name:m[0],emoji:m[1],photo:'',kind:m[2]||'person'}));ch=true;}
+  const L=DB.lists['สมาชิกในบ้าน']=DB.lists['สมาชิกในบ้าน']||['ทุกคน'];
+  DB.members.forEach(m=>{if(!L.includes(m.name)){L.push(m.name);ch=true;}});
+  if((DB.v||1)<4){DB.v=4;ch=true;}
+  if(ch){try{localStorage.setItem(LS_KEY,JSON.stringify(DB));}catch(e){}}})();
+const _addLedger=LOCAL.addLedger;
+LOCAL.addLedger=function(e){const r=_addLedger(e);const row=DB.led.find(x=>x._row===r.row)||DB.led[DB.led.length-1];
+  if(row&&e){if(e.type==='รายรับ'){row['เงินจากใคร']=e.from||'';}else{row['ของใคร/จ่ายให้ใคร']=e.forWho||'';row['จ่ายโดย']=e.paidBy||'';}
+    if(e.store)row['ร้านค้า']=e.store;if(e.items)row['รายการย่อย']=e.items;if(e.receipt)row['ใบเสร็จ']=e.receipt;persist();}
+  return r;};
+LOCAL.saveMember=function(o){if(!o.name||!o.name.trim())throw new Error('ใส่ชื่อก่อนนะ');let m=DB.members.find(x=>x.id===o.id);
+  const old=m&&m.name;if(!m){m={id:newId()};DB.members.push(m);}Object.assign(m,{name:o.name.trim(),emoji:o.emoji||'🙂',photo:o.photo||'',kind:o.kind||'person'});
+  const L=DB.lists['สมาชิกในบ้าน'];if(old&&old!==m.name){const i=L.indexOf(old);if(i>=0)L[i]=m.name;
+    DB.led.forEach(r=>['ของใคร/จ่ายให้ใคร','จ่ายโดย','เงินจากใคร'].forEach(k=>{if(r[k]===old)r[k]=m.name;}));DB.todo.forEach(t=>{if(t['ผู้รับผิดชอบ']===old)t['ผู้รับผิดชอบ']=m.name;});}
+  if(!L.includes(m.name))L.push(m.name);persist();return {ok:true,id:m.id};};
+LOCAL.deleteMember=function(id){const m=DB.members.find(x=>x.id===id);DB.members=DB.members.filter(x=>x.id!==id);
+  if(m){DB.lists['สมาชิกในบ้าน']=DB.lists['สมาชิกในบ้าน'].filter(x=>x!==m.name);}persist();return {ok:true};};
