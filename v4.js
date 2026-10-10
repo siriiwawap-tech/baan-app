@@ -157,9 +157,9 @@ function guessCat(p){const s=(p.store+' '+p.items.map(i=>i.name).join(' ')).toLo
 
 /* ---------- scanner flow ---------- */
 function startScan(){openModal(`<h3 style="text-align:center">🧾 สแกนบิล</h3><p class="muted" style="text-align:center">อยากใช้รูปจากไหนดี? 🐣</p>
-  <div class="pickgrid"><button class="bigscan" onclick="scanPick('cam')"><span class="cam">📷</span><b>ถ่ายรูป</b></button><button class="bigscan lib" onclick="scanPick('lib')"><span class="cam">🖼️</span><b>เลือกจากคลังรูป</b></button></div>
+  <div class="pickgrid"><label for="scanFile" class="bigscan" role="button" onclick="scanPick('cam',1)"><span class="cam">📷</span><b>ถ่ายรูป</b></label><label for="scanLib" class="bigscan lib" role="button" onclick="scanPick('lib',1)"><span class="cam">🖼️</span><b>เลือกจากคลังรูป</b></label></div>
   <button class="btn full ghost" onclick="closeModal()">ยกเลิก</button>`);}
-function scanPick(src){closeModal();const inp=$(src==='lib'?'scanLib':'scanFile');inp.click();if(S.page!=='scan')go('scan');}
+function scanPick(src,viaLabel){if(!viaLabel){const inp=$(src==='lib'?'scanLib':'scanFile');try{inp.value='';}catch(e){}inp.click();}gdbg({scan:'pick',src});setTimeout(()=>{closeModal();},250);}
 function loadScan(){const rows=DB.led.filter(r=>r['ใบเสร็จ']||r['ร้านค้า']||/สแกนบิล|สลิปโอนเงิน/.test(r['หมายเหตุ']||'')).sort((a,b)=>b._row-a._row).slice(0,8);
   $('scanRecent').innerHTML=rows.length?rows.map(ledRow).join(''):emptyMsg('🧾','ยังไม่เคยสแกนบิล ลองถ่ายใบแรกเลย!');}
 function loadTesseract(){if(window.Tesseract)return Promise.resolve();return new Promise((res,rej)=>{const s=document.createElement('script');
@@ -679,3 +679,27 @@ function setStatus(row,v){const r=DB.inv.find(x=>x._row===row);if(!r)return;r['�
 function addInvToShop(row){const r=DB.inv.find(x=>x._row===row);if(!r)return;LOCAL.saveShopping({'รายการ':r['รายการ'],'จำนวน':1,'หน่วย':r['หน่วย']||'','ที่เก็บ/หมวด':r['ที่เก็บ']||'','ความด่วน':r['สถานะตั้งเอง']==='หมด'?'ด่วน':'ก่อนหมด','หมายเหตุ':''});closeModal();toast('เพิ่มลงลิสต์แล้ว 🛒');stockRefresh();}
 {const _ai=LOCAL.adjustInventory;LOCAL.adjustInventory=function(row,d){const r=DB.inv.find(x=>x._row===row);if(r&&r['สถานะตั้งเอง']){r['สถานะตั้งเอง']='';}return _ai.apply(this,arguments);};}
 {const _si=LOCAL.saveInventory;LOCAL.saveInventory=function(o){const r=o&&o._row&&DB.inv.find(x=>x._row===o._row);if(r&&r['สถานะตั้งเอง']&&o['จำนวน']!==undefined&&num_(o['จำนวน'])!==num_(r['จำนวน']))r['สถานะตั้งเอง']='';return _si.apply(this,arguments);};}
+
+/* ---------- v22: robust iOS photo upload ---------- */
+function readBytes(f){const viaFR=()=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(r.error||new Error('FileReader'));r.readAsArrayBuffer(f);});
+  const t=(p,ms)=>Promise.race([p,new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),ms))]);
+  return (f.arrayBuffer?t(f.arrayBuffer(),15000):Promise.reject(new Error('no arrayBuffer'))).catch(e=>{gdbg({scan:'arrayBuffer fail',m:String(e&&e.message||e)});return t(viaFR(),15000);});}
+function sniffType(buf,f){const b=new Uint8Array(buf.slice(0,12));if(b[0]===0x89&&b[1]===0x50)return 'image/png';if(b[0]===0xFF&&b[1]===0xD8)return 'image/jpeg';
+  const s=String.fromCharCode(...b.slice(4,12));if(/ftyp(heic|heix|mif1|hevc)/.test(s))return 'image/heic';return f.type||'image/jpeg';}
+decodeImg=async function(file){const errs=[];
+  if(window.createImageBitmap){try{const bm=await createImageBitmap(file);return {src:bm,w:bm.width,h:bm.height};}catch(e){errs.push('bitmap:'+e.message);}}
+  const viaImg=src=>new Promise((res,rej)=>{const img=new Image();img.onload=()=>res({src:img,w:img.naturalWidth,h:img.naturalHeight});img.onerror=()=>rej(new Error('img'));img.src=src;});
+  const u=URL.createObjectURL(file);try{const r=await viaImg(u);setTimeout(()=>URL.revokeObjectURL(u),1500);return r;}catch(e){URL.revokeObjectURL(u);errs.push('blobURL');}
+  try{const du=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(r.error);r.readAsDataURL(file);});return await viaImg(du);}catch(e){errs.push('dataURL');}
+  gdbg({scan:'decode fail',type:file.type,size:file.size,errs});
+  throw new Error(/heic|heif/i.test(file.type+file.name)?'เปิดรูป HEIC ไม่ได้ ลองแคปหน้าจอรูปนั้นแล้วเลือกใหม่ หรือตั้งกล้องเป็น “เข้ากันได้มากที่สุด”':'อ่านรูปนี้ไม่ได้ ('+(file.type||'ไม่ทราบชนิด')+')');};
+onScanFile=async function(inp){let files=[];try{files=[...(inp.files||[])];}catch(e){}
+  gdbg({scan:'change',id:inp.id,n:files.length,files:files.map(f=>[f.type,f.size,(f.name||'').slice(-12)])});if(!files.length)return;
+  try{if(S.page!=='scan')go('scan');prog('📥 ได้รับรูปแล้ว กำลังเปิด…',.01);
+    const blobs=[];for(const f of files){try{const buf=await readBytes(f);const type=sniffType(buf,f);blobs.push(new File([buf],f.name||('scan.'+type.split('/')[1]),{type}));}
+      catch(e){gdbg({scan:'read fail',m:String(e&&e.message||e)});blobs.push(f);}}
+    try{inp.value='';}catch(e){}
+    const busy=SCANQ.length||SCAN;SCANQ.push(...blobs);SCANN+=blobs.length;if(!busy)scanNext();else{$('scanProg').innerHTML='';toast('เพิ่มเข้าคิว '+blobs.length+' รูป 🧾');}
+  }catch(e){gdbg({scan:'pipeline fail',m:String(e&&e.message||e)});$('scanProg').innerHTML='';toast('😿 อัปโหลดรูปไม่สำเร็จ: '+(e.message||e));try{inp.value='';}catch(_){}}};
+{const _as=analyzeScan;analyzeScan=async function(f){try{gdbg({scan:'analyze',type:f.type,size:f.size});await _as(f);}catch(e){gdbg({scan:'analyze fail',m:String(e&&e.message||e)});$('scanProg').innerHTML='';toast('😿 '+(e.message||e));}};}
+document.addEventListener('click',e=>{const l=e.target.closest&&e.target.closest('label[for=scanFile],label[for=scanLib]');if(l){const i=$(l.htmlFor);if(i)try{i.value='';}catch(_){}}},true);
