@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>🏠 บ้านของเรา</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#FBF5E6">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="บ้านของเรา">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Itim&family=Mali:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#FBF5E6; --paper2:#F5ECD6; --line:rgba(120,150,190,.13);
+  --pink:#FFD3DF; --pink-d:#F2789F; --mint:#CFEFD9; --mint-d:#5DBB8F; --lav:#E3D9F7; --lav-d:#9A7FD1;
+  --peach:#FFDDC2; --peach-d:#F59A5B; --sky:#D3E8FA; --sky-d:#5FA2DD; --lemon:#FFF0AE; --lemon-d:#D9A800;
+  --ink:#4B3B33; --muted:#8F7F72; --card:#FFFDF6; --r:18px;
+  --shadow:3px 4px 0 rgba(75,59,51,.12);
+  --photo:url('photo.jpg');
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{font-family:'Mali','Itim',sans-serif;color:var(--ink);font-size:15px;min-height:100vh;background-color:var(--paper);
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .45 0 0 0 0 .35 0 0 0 0 .2 0 0 0 .09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+  repeating-linear-gradient(180deg,transparent 0 31px,var(--line) 31px 32px);}
+.bg{position:fixed;inset:0;z-index:-2;background:var(--photo) center 30%/cover;opacity:.07;filter:sepia(.5) saturate(.8);pointer-events:none}
+h1,h2,h3,.tab,.btn,.kpi .v,.chip,.money,.badge,.amount,.seg button{font-family:'Itim','Mali',sans-serif;font-weight:400}
+.wrap{max-width:560px;margin:0 auto;padding:12px 14px 90px}
+/* crayon border: SVG roughen filter applied on pseudo-element so text stays crisp */
+.rough{position:relative}
+.card,.kpi,.btn,.tab,.chip,.day,.hero-note,input,select,textarea,#lockBox,.sheet,.seg,.statbox{border-radius:var(--r)}
+.card,.day,#lockBox,.statbox{position:relative;background:var(--card);border:none}
+.card::before,.day::before,#lockBox::before,.statbox::before{content:"";position:absolute;inset:0;border:2.5px solid var(--bc,#6b5546);border-radius:inherit;filter:url(#crayon);pointer-events:none;opacity:.75}
+.card{padding:16px;margin:16px 0;box-shadow:var(--shadow)}
+.card:nth-of-type(3n+1){--bc:#E36C93}.card:nth-of-type(3n+2){--bc:#6FA8DC}.card:nth-of-type(3n){--bc:#62B48C}
+.card h2{font-size:19px;margin:0 0 10px;display:flex;align-items:center;gap:6px}
+.card h2 .act{margin-left:auto}
+.card h2::after{content:"";position:absolute}
+.hl{background:linear-gradient(transparent 55%,rgba(255,224,102,.7) 55% 88%,transparent 88%);padding:0 3px}
+/* hero polaroid */
+.hero{position:relative;padding:14px 4px 6px;text-align:center}
+.polaroid{display:inline-block;background:#fff;padding:10px 10px 44px;box-shadow:4px 6px 14px rgba(75,59,51,.22);transform:rotate(-2.2deg);width:min(100%,430px);position:relative;margin-top:14px}
+.polaroid img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;object-position:center 30%;filter:saturate(1.05) contrast(1.02)}
+.polaroid .cap{position:absolute;left:0;right:0;bottom:8px;font-family:'Itim';font-size:22px;color:#5b4636}
+.tape{position:absolute;width:96px;height:28px;background:rgba(255,230,140,.75);top:-14px;box-shadow:0 1px 2px rgba(0,0,0,.08);
+  -webkit-mask:linear-gradient(90deg,transparent 0 3px,#000 3px calc(100% - 3px),transparent 0);}
+.tape.l{left:18px;transform:rotate(-14deg);background:rgba(255,182,206,.75)}.tape.r{right:18px;transform:rotate(11deg);background:rgba(170,215,240,.8)}
+.sticker{position:absolute;font-size:34px;filter:drop-shadow(1px 2px 0 #fff) drop-shadow(-1px -1px 0 #fff) drop-shadow(2px 3px 2px rgba(0,0,0,.18));animation:bob 3.4s ease-in-out infinite;z-index:2}
+.st1{right:-4px;bottom:30px;animation-delay:.4s}.st2{left:-6px;bottom:60px;transform:rotate(-12deg)}.st3{right:30px;top:-10px;font-size:28px;animation-delay:1s}
+@keyframes bob{50%{transform:translateY(-5px) rotate(-6deg)}}
+.hero .sub{color:var(--muted);margin-top:10px;font-size:15px}
+.tabs{position:sticky;top:0;z-index:5;display:flex;gap:8px;overflow-x:auto;padding:10px 4px;margin:0 -14px;padding-left:14px;padding-right:14px;scrollbar-width:none;background:linear-gradient(var(--paper) 75%,transparent)}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex:0 0 auto;border:2px dashed #CDB9A6;padding:8px 13px;background:#FFFDF6;color:var(--ink);font-size:15px;cursor:pointer;transition:.2s;border-radius:14px 18px 12px 16px}
+.tab.on{background:var(--pink);border:2px solid var(--pink-d);transform:rotate(-2deg) translateY(-1px);box-shadow:2px 3px 0 rgba(242,120,159,.35)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.kpi{padding:11px;min-height:80px;border:2px solid rgba(75,59,51,.12);border-radius:16px 20px 14px 18px}
+.kpi:nth-child(odd){transform:rotate(-.6deg)}.kpi:nth-child(even){transform:rotate(.6deg)}
+.kpi .l{font-size:12.5px;color:var(--muted)}.kpi .v{font-size:19px;margin-top:3px;word-break:break-word}.kpi .e{font-size:20px}
+.c1{background:var(--mint)}.c2{background:var(--pink)}.c3{background:var(--lav)}.c4{background:var(--peach)}.c5{background:var(--sky)}.c6{background:var(--lemon)}
+label{display:block;font-size:13px;color:var(--muted);margin:10px 0 4px}
+input,select,textarea{width:100%;font:inherit;color:var(--ink);padding:10px 12px;border:2px solid #E3D4C2;background:#FFFEF9;outline:none;border-radius:14px 10px 15px 11px}
+input:focus,select:focus,textarea:focus{border-color:var(--pink-d);box-shadow:0 0 0 3px rgba(242,120,159,.15)}
+textarea{min-height:52px;resize:vertical}
+.row{display:flex;gap:8px}.row>*{flex:1}
+.btn{border:2px solid rgba(75,59,51,.55);padding:11px 16px;font-size:16px;cursor:pointer;background:var(--pink-d);color:#fff;box-shadow:2px 3px 0 rgba(75,59,51,.35);border-radius:16px 12px 17px 13px;transition:transform .1s}
+.btn:active{transform:translate(2px,2px);box-shadow:0 0 0 transparent}
+.btn.full{width:100%;margin-top:14px}.btn.sm{padding:6px 11px;font-size:14px}
+.btn.mint{background:var(--mint-d)}.btn.lav{background:var(--lav-d)}
+.btn.ghost{background:#FFFDF6;color:var(--ink);border:2px dashed #BFA996;box-shadow:none}
+.seg{display:flex;background:var(--paper2);padding:4px;border:2px dashed #DCCAB5}
+.seg button{flex:1;border:none;background:none;padding:9px;border-radius:12px;font-size:16px;color:var(--muted);cursor:pointer}
+.seg button.on{background:var(--lav-d);color:#fff}
+.seg button.on.in{background:var(--mint-d);color:#fff}.seg button.on.out{background:var(--pink-d);color:#fff}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:2px solid #E3D4C2;background:#FFFEF9;padding:5px 11px;font-size:14px;cursor:pointer;color:var(--ink);border-radius:999px}
+.chip.on{background:var(--lav);border-color:var(--lav-d)}
+.amount{font-size:30px;text-align:center}
+.item{display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:2px dashed #EADCCB}
+.item:last-child{border-bottom:none}
+.item .ico{font-size:22px;width:38px;height:38px;border-radius:12px 15px 11px 14px;display:grid;place-items:center;background:var(--sky);flex:0 0 38px;border:2px solid rgba(75,59,51,.12)}
+.item .t{flex:1;min-width:0}
+.item .t b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item .t small{color:var(--muted)}
+.money{white-space:nowrap}
+.in-c{color:#2E9468}.out-c{color:#D9507A}
+.badge{font-size:12.5px;padding:2px 9px;border-radius:999px;white-space:nowrap;border:1.5px solid rgba(0,0,0,.08)}
+.b-ok{background:var(--mint);color:#22704E}.b-warn{background:var(--lemon);color:#866A00}
+.b-bad{background:#FFCCD3;color:#B8284B}.b-orange{background:var(--peach);color:#A9501B}.b-info{background:var(--sky);color:#2F68A0}
+.qty{display:flex;align-items:center;gap:6px}
+.qty button{width:30px;height:30px;border-radius:10px;border:2px solid rgba(75,59,51,.2);background:var(--lav);font-size:17px;cursor:pointer;color:var(--ink)}
+.qty span{min-width:42px;text-align:center;font-family:'Itim'}
+.chk{appearance:none;-webkit-appearance:none;width:26px;height:26px;border-radius:8px 10px 7px 9px;border:2.5px solid var(--pink-d);background:#fff;flex:0 0 26px;cursor:pointer;display:grid;place-items:center;padding:0;margin:0}
+.chk:checked{background:var(--pink-d)}
+.chk:checked::after{content:"✓";color:#fff;font-weight:700;font-size:16px}
+.done b{text-decoration:line-through;color:var(--muted)}
+/* crayon progress bar */
+.bar{height:14px;border-radius:99px;background:#F1E6D5;overflow:hidden;margin-top:5px;border:2px solid rgba(75,59,51,.18)}
+.bar i{display:block;height:100%;border-radius:99px;background:repeating-linear-gradient(-45deg,var(--pink-d) 0 6px,#F79BB8 6px 11px);filter:url(#crayon)}
+.bar.g i{background:repeating-linear-gradient(-45deg,var(--mint-d) 0 6px,#86D3AE 6px 11px)}
+.bar.b i{background:repeating-linear-gradient(-45deg,var(--sky-d) 0 6px,#8EC2EE 6px 11px)}
+.bar.o i{background:repeating-linear-gradient(-45deg,var(--peach-d) 0 6px,#F9BC8E 6px 11px)}
+.day{padding:12px;margin:12px 0;--bc:#D9C3AE}
+.day.today{--bc:var(--pink-d);background:#FFF6F3}
+.day h3{margin:0 0 6px;font-size:16px;display:flex;align-items:center;gap:6px}
+.meal{display:flex;gap:8px;align-items:center;margin:6px 0}.meal span{width:26px;font-size:18px}
+.meal input{padding:8px 10px}
+.empty{text-align:center;color:var(--muted);padding:14px;font-size:14.5px}
+.empty .big{display:block;font-size:34px;margin-bottom:4px}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(120px);background:#5B4636;color:#FFF8E8;
+  padding:12px 18px;border-radius:16px 12px 17px 13px;font-family:'Itim';transition:.3s;z-index:50;max-width:90%;text-align:center;font-size:16px}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.modal{position:fixed;inset:0;background:rgba(75,59,51,.35);display:none;align-items:flex-end;justify-content:center;z-index:40}
+.modal.show{display:flex}
+.sheet{background:var(--paper);width:100%;max-width:560px;border-radius:26px 26px 0 0;padding:18px 16px 26px;max-height:88vh;overflow:auto;animation:up .25s;border-top:3px dashed #D8C3AD}
+@keyframes up{from{transform:translateY(60px);opacity:.4}}
+.sheet h3{margin:0 0 6px;font-family:'Itim';font-size:20px}
+.toggle{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:14px}
+.toggle input{width:20px;height:20px}
+.loading{display:inline-block;animation:spin 1s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
+.demo{background:var(--lemon);padding:8px 12px;font-size:14px;margin:10px auto 0;max-width:430px;border:2px dashed #E0C25A;border-radius:14px 10px 15px 11px;transform:rotate(.6deg)}
+.page{display:none}.page.on{display:block;animation:fade .25s}@keyframes fade{from{opacity:0;transform:translateY(6px)}}
+.foot{text-align:center;color:var(--muted);font-size:12.5px;margin-top:18px}
+.foot a{color:var(--lav-d)}
+table.sum{width:100%;border-collapse:collapse;font-size:14px;margin-top:8px}
+table.sum th,table.sum td{padding:6px 4px;border-bottom:2px dashed #EADCCB;text-align:right}
+table.sum th:first-child,table.sum td:first-child{text-align:left}
+/* dashboard visuals */
+.vs{display:flex;flex-direction:column;gap:10px}
+.vrow{display:flex;align-items:center;gap:8px}.vrow .lbl{width:74px;font-family:'Itim';font-size:15px}
+.vrow .bar{flex:1;height:22px;margin:0}.vrow .money{width:96px;text-align:right;font-size:15px}
+.net{text-align:center;font-family:'Itim';font-size:17px;margin-top:4px}
+.donut-wrap{display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:center}
+.donut-wrap svg{width:170px;height:170px;flex:0 0 170px}
+.legend{flex:1;min-width:150px;font-size:14px}
+.legend div{display:flex;align-items:center;gap:6px;margin:4px 0}
+.legend i{width:14px;height:14px;border-radius:4px 6px 3px 5px;flex:0 0 14px;border:1.5px solid rgba(75,59,51,.3)}
+.legend .money{margin-left:auto;font-size:14px}
+.statbox{padding:12px;margin:8px 0;--bc:#CDB9A6;background:#FFFEF9}
+.statbox .top{display:flex;justify-content:space-between;align-items:baseline;gap:6px}
+.statbox .top b{font-family:'Itim';font-weight:400;font-size:16px}
+.statbox small{color:var(--muted)}
+.pchip{display:inline-flex;align-items:center;gap:4px;padding:5px 10px;border-radius:999px;font-size:14px;border:2px solid rgba(75,59,51,.15);background:var(--lemon)}
+.pchip.bad{background:#FFCCD3}.pchip.orange{background:var(--peach)}
+.meals{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.meals>div{background:var(--paper2);border-radius:14px 10px 15px 11px;padding:8px;text-align:center;border:2px dashed #DCCAB5;font-size:14px}
+.meals>div span{display:block;font-size:22px}.meals>div em{font-style:normal;color:var(--muted);font-size:12px;display:block}
+/* PIN lock */
+#lock{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;font-family:'Itim',sans-serif;background-color:var(--paper);background-image:inherit;overflow:hidden}
+#lock::before{content:"";position:absolute;inset:0;background:var(--photo) center 30%/cover;opacity:.12;filter:sepia(.4)}
+#lock.hide{display:none}
+#lock .doodle{position:absolute;font-size:34px;opacity:.85;animation:bob 4s ease-in-out infinite}
+#lockBox{padding:22px 20px 20px;width:min(330px,90vw);text-align:center;box-shadow:4px 6px 0 rgba(75,59,51,.14);--bc:#E36C93;transform:rotate(-.8deg)}
+.lockpic{width:96px;height:96px;border-radius:50%;margin:-62px auto 6px;background:var(--photo) center 30%/cover;border:5px solid #fff;box-shadow:2px 4px 10px rgba(0,0,0,.18);position:relative}
+.lockpic::after{content:"🔒";position:absolute;right:-8px;bottom:-4px;font-size:28px}
+#lockBox h2{margin:6px 0 2px;font-weight:400;color:var(--ink);font-size:26px}#lockBox p{margin:0 0 12px;color:var(--muted);font-size:15px;font-family:'Mali'}
+#lockDots{display:flex;gap:16px;justify-content:center;margin:10px 0 6px}
+#lockDots i{width:20px;height:20px;border-radius:50%;border:2.5px solid var(--pink-d);transition:.15s;font-style:normal;display:grid;place-items:center;font-size:14px}
+#lockDots i.on{background:var(--pink);transform:scale(1.15) rotate(-10deg)}#lockDots i.on::after{content:"🌸"}
+#lockMsg{min-height:22px;color:#D9507A;font-size:15px;margin-bottom:6px}
+#lockPad{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+#lockPad button{font-family:'Itim',sans-serif;font-size:26px;height:60px;border:2.5px solid rgba(75,59,51,.45);border-radius:48% 52% 45% 55%/55% 45% 52% 48%;background:var(--pink);color:var(--ink);cursor:pointer;box-shadow:2px 3px 0 rgba(75,59,51,.25)}
+#lockPad button:nth-child(3n+2){background:var(--lemon)}#lockPad button:nth-child(3n){background:var(--mint)}
+#lockPad button:nth-child(n+4):nth-child(-n+6){border-radius:52% 48% 55% 45%/45% 55% 48% 52%}
+#lockPad button:active{transform:translate(2px,2px);box-shadow:none}#lockPad .blank{visibility:hidden}#lockPad button[data-k=del]{background:var(--peach);font-size:22px}
+.shake{animation:shk .4s}@keyframes shk{20%,60%{transform:translateX(-10px)}40%,80%{transform:translateX(10px)}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><filter id="crayon" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="3" seed="3" result="t"/><feDisplacementMap in="SourceGraphic" in2="t" scale="3.5"/></filter></svg>
+<div id="lock"><span class="doodle" style="left:8%;top:9%">🌷</span><span class="doodle" style="right:10%;top:14%;animation-delay:1s">⭐</span><span class="doodle" style="left:12%;bottom:12%;animation-delay:.5s">🧸</span><span class="doodle" style="right:9%;bottom:9%;animation-delay:1.5s">🍓</span>
+<div id="lockBox"><div class="lockpic"></div><h2>บ้านของเรา 🏡</h2><p>ใส่รหัสลับ 4 หลักนะจ๊ะ ✏️</p>
+<div id="lockDots"><i></i><i></i><i></i><i></i></div><div id="lockMsg"></div>
+<div id="lockPad"><button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button><button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button><button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button><button class="blank" tabindex="-1"></button><button data-k="0">0</button><button data-k="del" aria-label="ลบ">⌫</button></div></div></div>
+<script src="lock.js"></script>
+<div class="bg"></div>
+<div class="wrap">
+  <div class="hero">
+    <div class="polaroid"><span class="tape l"></span><span class="tape r"></span><img src="photo.jpg" alt="ครอบครัวของเรา"><div class="cap">บ้านของเรา 💕</div>
+      <span class="sticker st1">🏡</span><span class="sticker st2">🌈</span><span class="sticker st3">✨</span></div>
+    <div class="sub" id="todayTxt">กำลังโหลด…</div>
+    <div id="demoNote"></div>
+  </div>
+
+  <nav class="tabs" id="tabs">
+    <button class="tab on" data-p="dash">🏡 หน้าหลัก</button>
+    <button class="tab" data-p="ledger">💸 รายรับจ่าย</button>
+    <button class="tab" data-p="inv">🧺 คลังของ</button>
+    <button class="tab" data-p="menu">🍱 เมนู</button>
+    <button class="tab" data-p="todo">🧹 งานบ้าน</button>
+    <button class="tab" data-p="shop">🛒 ชอปปิ้ง</button>
+    <button class="tab" data-p="bills">🧾 บิล</button>
+    <button class="tab" data-p="money">🐷 ออม/หนี้</button>
+    <button class="tab" data-p="sum">📊 สรุป/งบ</button>
+    <button class="tab" data-p="set">⚙️ ตั้งค่า</button>
+  </nav>
+
+  <section class="page on" id="p-dash">
+    <div class="card"><h2>💰 <span class="hl">เดือนนี้ เข้า vs ออก</span></h2><div id="vIncExp"></div></div>
+    <div class="card"><h2>🍩 <span class="hl">ใช้เงินไปกับอะไรบ้าง</span></h2><div id="dCats"></div></div>
+    <div class="card"><h2>🎯 <span class="hl">เป้าหมายเงินออม & หนี้</span></h2><div id="vGoals"></div></div>
+    <div class="card"><h2>🥛 <span class="hl">ของใกล้หมด</span> <button class="btn sm lav act" onclick="lowToShop()">🛒 เพิ่มลงลิสต์</button></h2><div id="dLow"></div></div>
+    <div class="card"><h2>🍳 <span class="hl">วันนี้กินอะไรดี</span></h2><div id="dMenu"></div></div>
+    <div class="card"><h2>🧹 <span class="hl">งานบ้านวันนี้</span></h2><div id="dTodo"></div></div>
+    <div class="card"><h2>🧾 <span class="hl">บิลใกล้ครบกำหนด</span></h2><div id="dBills"></div></div>
+    <div class="card"><h2>✨ <span class="hl">ตัวเลขทั้งหมด</span></h2><div class="grid" id="kpis"></div></div>
+  </section>
+
+  <section class="page" id="p-ledger">
+    <div class="card">
+      <h2>✏️ จดรายรับ-รายจ่าย</h2>
+      <div class="seg"><button id="tOut" class="on out" onclick="setType('รายจ่าย')">💸 รายจ่าย</button><button id="tIn" class="in" onclick="setType('รายรับ')">💰 รายรับ</button></div>
+      <label>จำนวนเงิน (บาท)</label>
+      <input id="lAmt" class="amount" type="number" inputmode="decimal" placeholder="0">
+      <label>หมวดหมู่</label><div class="chips" id="lCats"></div>
+      <label>รายการ</label><input id="lItem" placeholder="เช่น ผัก หมู ไข่ จากตลาด">
+      <div class="row">
+        <div><label>วันที่</label><input id="lDate" type="date"></div>
+        <div><label>วิธีชำระ</label><select id="lMethod"></select></div>
+      </div>
+      <label>หมายเหตุ</label><input id="lNote" placeholder="(ไม่บังคับ)">
+      <button class="btn full" onclick="saveLedger()">💾 บันทึก</button>
+    </div>
+    <div class="card"><h2>🕒 รายการล่าสุด <select id="lLimit" style="width:auto;flex:0 0 auto" class="act" onchange="loadLedger()"><option value="30">30 รายการ</option><option value="100">100 รายการ</option><option value="100000">ทั้งหมด</option></select></h2><div id="lList"></div></div>
+  </section>
+
+  <section class="page" id="p-inv">
+    <div class="card">
+      <h2>🧺 ของในบ้าน <button class="btn sm act" onclick="editInv()">＋ เพิ่ม</button></h2>
+      <div class="chips" id="invFilter"></div>
+      <div id="invList" style="margin-top:8px"></div>
+    </div>
+  </section>
+
+  <section class="page" id="p-menu">
+    <div class="card">
+      <h2>🍱 แพลนเมนูรายสัปดาห์</h2>
+      <div class="row"><button class="btn ghost sm" onclick="shiftWeek(-7)">◀ สัปดาห์ก่อน</button><button class="btn ghost sm" onclick="shiftWeek(0)">วันนี้</button><button class="btn ghost sm" onclick="shiftWeek(7)">ถัดไป ▶</button></div>
+      <div id="menuList"></div>
+    </div>
+  </section>
+
+  <section class="page" id="p-todo">
+    <div class="card"><h2>🧹 งานบ้าน <button class="btn sm act" onclick="editTodo()">＋ เพิ่มงาน</button></h2>
+      <div class="chips" id="todoFilter"></div><div id="todoList" style="margin-top:8px"></div>
+      <div class="foot">แตะชื่องานเพื่อแก้ไข · งานที่วนซ้ำจะกลับมาเองเมื่อถึงรอบ</div></div>
+  </section>
+
+  <section class="page" id="p-shop">
+    <div class="card">
+      <h2>🛒 ชอปปิ้งลิสต์</h2>
+      <div class="row"><input id="sItem" placeholder="ต้องซื้ออะไร…"><input id="sQty" type="number" inputmode="decimal" placeholder="จำนวน" style="flex:0 0 84px"></div>
+      <div class="row" style="margin-top:8px"><select id="sLoc"></select><input id="sPrice" type="number" inputmode="decimal" placeholder="ราคา/หน่วย" style="flex:0 0 110px"></div>
+      <button class="btn full" onclick="addShop()">＋ เพิ่มลงลิสต์</button>
+      <div class="row" style="margin-top:10px"><button class="btn sm lav" onclick="lowToShop()">🥛 เพิ่มของใกล้หมด</button><button class="btn sm ghost" onclick="clearBought()">🧹 ล้างที่ซื้อแล้ว</button></div>
+    </div>
+    <div class="card"><h2>📝 ต้องซื้อ <span class="act money" id="shopTotal"></span></h2><div id="shopList"></div></div>
+  </section>
+
+  <section class="page" id="p-bills">
+    <div class="card"><h2>🧾 ค่าน้ำดื่ม · ค่าไฟ · ค่าเน็ต <button class="btn sm act" onclick="newBill()">＋ เพิ่มบิล</button></h2><div id="billList"></div></div>
+  </section>
+
+  <section class="page" id="p-money">
+    <div class="card"><h2>🐷 เงินออม/ลงทุน</h2><div id="savSum"></div>
+      <div class="row"><select id="mType"></select><select id="mDir" style="flex:0 0 96px"><option>ฝาก</option><option>ถอน</option></select></div>
+      <div class="row" style="margin-top:8px"><input id="mAmt" type="number" inputmode="decimal" placeholder="จำนวนเงิน"><input id="mDetail" placeholder="บัญชี/รายละเอียด"></div>
+      <button class="btn full mint" onclick="addSaving()">💰 บันทึกเงินออม</button>
+      <div id="savRecent" style="margin-top:10px"></div>
+    </div>
+    <div class="card"><h2>💳 หนี้สิน <button class="btn sm act" onclick="editDebt()">＋ เพิ่มหนี้</button></h2><div id="debtList"></div></div>
+  </section>
+
+  <section class="page" id="p-sum">
+    <div class="card"><h2>📊 สรุปรายรับ-รายจ่าย</h2>
+      <div class="seg" id="sumSeg"><button data-m="week" class="on" onclick="setSum('week')">รายสัปดาห์</button><button data-m="month" onclick="setSum('month')">รายเดือน</button><button data-m="year" onclick="setSum('year')">รายปี</button></div>
+      <div id="sumTable"></div></div>
+    <div class="card"><h2>🏷️ รายจ่ายตามหมวด <select id="sumPeriod" class="act" style="width:auto;flex:0 0 auto" onchange="renderSumCats()"></select></h2><div id="sumCats"></div></div>
+    <div class="card"><h2>🎯 งบ 50/30/20 (เดือนนี้)</h2><div id="budget"></div></div>
+    <div class="card"><h2>🛟 เงินสำรองฉุกเฉิน</h2><div id="efund"></div></div>
+  </section>
+
+  <section class="page" id="p-set">
+    <div class="card"><h2>💾 สำรอง/ส่งออกข้อมูล</h2>
+      <button class="btn full mint" onclick="exportXlsx()">📗 ส่งออกเป็น Excel (.xlsx)</button>
+      <button class="btn full lav" onclick="backupJson()">📦 สำรองข้อมูล (JSON)</button>
+      <button class="btn full ghost" onclick="$('restoreFile').click()">📂 กู้คืนจากไฟล์ JSON</button>
+      <input type="file" id="restoreFile" accept=".json,application/json" style="display:none" onchange="restoreJson(this)">
+      <div class="foot" id="storeInfo"></div>
+    </div>
+    <div class="card"><h2>🎯 ตั้งค่างบประมาณ</h2>
+      <div class="row"><div><label>จำเป็น %</label><input id="bN" type="number"></div><div><label>อยากได้ %</label><input id="bW" type="number"></div><div><label>ออม/หนี้ %</label><input id="bS" type="number"></div></div>
+      <div class="row"><div><label>สำรองฉุกเฉิน (เดือน)</label><input id="efM" type="number"></div><div><label>บิลครบกำหนดวันที่</label><input id="billDay" type="number" min="1" max="28"></div></div>
+      <label>หมวดรายจ่ายที่ “จำเป็น” (คั่นด้วย , ที่เหลือนับเป็น “อยากได้”)</label><input id="needCats">
+      <button class="btn full" onclick="saveSettings()">💾 บันทึกการตั้งค่า</button>
+    </div>
+    <div class="card"><h2>📝 รายการตัวเลือก</h2><div id="listEdit"></div>
+      <button class="btn full" onclick="saveLists()">💾 บันทึกรายการ</button></div>
+    <div class="card"><h2>🧪 ข้อมูลตัวอย่าง</h2>
+      <button class="btn full lav" onclick="loadSample()">✨ ใส่ข้อมูลตัวอย่าง</button>
+      <button class="btn full ghost" onclick="clearSample()">🧹 ลบเฉพาะข้อมูลตัวอย่าง</button>
+      <button class="btn full ghost" style="color:#d32f2f" onclick="wipeAll()">🗑️ ล้างข้อมูลทั้งหมด</button>
+    </div>
+    <div class="card"><h2>🔒 ความปลอดภัย</h2>
+      <button class="btn full lav" onclick="lockApp()">🔒 ล็อกแอพ</button>
+    </div>
+  </section>
+
+  <div class="foot">ข้อมูลเก็บในเครื่องนี้ (เบราว์เซอร์) · สำรองเป็นไฟล์ได้ที่ ⚙️ ตั้งค่า</div>
+</div>
+
+<div class="modal" id="modal" onclick="if(event.target===this)closeModal()"><div class="sheet" id="sheet"></div></div>
+<div class="toast" id="toast"></div>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
+<script src="db.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
