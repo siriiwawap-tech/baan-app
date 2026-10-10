@@ -727,3 +727,85 @@ const _rsf=renderScanForm;renderScanForm=function(){if(SCAN_LOCK&&SCAN!==SCAN_LO
 {const _sv=saveScan;saveScan=function(){gdbg({scan:'save click',total:SCAN&&SCAN.total});const n=DB.led.length;let r;try{r=_sv.apply(this,arguments);}catch(e){gdbg({scan:'save threw',m:String(e.message||e)});toast('😿 บันทึกไม่สำเร็จ: '+(e.message||e));}
   Promise.resolve(r).then(()=>{gdbg({scan:'saved',added:DB.led.length-n});if(DB.led.length>n)SCAN_LOCK=null;});return r;};}
 {const _sn=scanNext;scanNext=function(){SCAN_LOCK=null;return _sn.apply(this,arguments);};}
+
+/* ---------- v24: memory-light images, crash-safe scan, always-on sync ---------- */
+const IOS=/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+const STANDALONE=!!(navigator.standalone||(window.matchMedia&&matchMedia('(display-mode: standalone)').matches));
+function plog(o){try{const k='hm_scanlog',a=JSON.parse(localStorage.getItem(k)||'[]');a.push(new Date().toLocaleTimeString('th-TH')+' '+(typeof o==='string'?o:JSON.stringify(o)));localStorage.setItem(k,JSON.stringify(a.slice(-25)));}catch(e){}}
+{const _g=gdbg;gdbg=function(o){if(o&&o.scan)plog(o);return _g(o);};}
+try{const a=JSON.parse(localStorage.getItem('hm_scanlog')||'[]');if(a.length){GDBG.push('— log ก่อนหน้า —',...a.slice(-12));const el=$('gemDbg');if(el)el.textContent=GDBG.join('\n');}}catch(e){}
+const IMG_MAX=1280,IMG_PX=2e6;
+function fitDims(w,h,max){let s=Math.min(1,max/Math.max(w,h));if(w*h*s*s>IMG_PX)s=Math.sqrt(IMG_PX/(w*h));return [Math.max(1,Math.round(w*s)),Math.max(1,Math.round(h*s))];}
+function freeCanvas(c){try{c.width=c.height=0;}catch(e){}}
+// Every image decode in the app goes through here: never builds a full-res canvas.
+decodeImg=async function(file,max){max=max||IMG_MAX;const c=document.createElement('canvas'),x=()=>c.getContext('2d');
+  if(!IOS&&window.createImageBitmap){try{let bm=await createImageBitmap(file,{resizeWidth:max,resizeQuality:'medium'});
+      if(bm.height>max){const w2=Math.round(bm.width*max/bm.height);bm.close();bm=await createImageBitmap(file,{resizeHeight:max,resizeQuality:'medium'});}
+      const [w,h]=fitDims(bm.width,bm.height,max);c.width=w;c.height=h;x().drawImage(bm,0,0,w,h);bm.close();return {src:c,w,h};}catch(e){}}
+  const u=URL.createObjectURL(file);const img=new Image();img.decoding='async';
+  try{await new Promise((res,rej)=>{img.onload=res;img.onerror=()=>rej(new Error('img'));img.src=u;});
+    const [w,h]=fitDims(img.naturalWidth,img.naturalHeight,max);c.width=w;c.height=h;x().drawImage(img,0,0,w,h);return {src:c,w,h};}
+  catch(e){gdbg({scan:'decode fail',type:file.type,size:file.size});throw new Error(/heic|heif/i.test(file.type+file.name)?'เปิดรูป HEIC ไม่ได้ ลองแคปหน้าจอรูปนั้นแล้วเลือกใหม่':'อ่านรูปนี้ไม่ได้ ('+(file.type||'?')+')');}
+  finally{URL.revokeObjectURL(u);img.onload=img.onerror=null;img.src='';}};
+compressImg=async function(file,max,q){const d=await decodeImg(file,Math.max(max,1));let c=d.src;
+  if(Math.max(d.w,d.h)>max){const [w,h]=fitDims(d.w,d.h,max);const c2=document.createElement('canvas');c2.width=w;c2.height=h;const g=c2.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,w,h);g.drawImage(c,0,0,w,h);freeCanvas(c);c=c2;}
+  return {url:c.toDataURL('image/jpeg',q),canvas:c};};
+const toBlob=(c,q)=>new Promise((res,rej)=>c.toBlob(b=>b?res(b):rej(new Error('toBlob')),'image/jpeg',q));
+const blobB64=b=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(',')[1]);r.onerror=()=>rej(r.error);r.readAsDataURL(b);});
+async function smallJpeg(file){const d=await decodeImg(file,IMG_MAX);const c=d.src;const g=document.createElement('canvas');g.width=c.width;g.height=c.height;const x=g.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,g.width,g.height);x.drawImage(c,0,0);freeCanvas(c);
+  const b=await toBlob(g,.8);freeCanvas(g);return b;}
+if(IOS&&STANDALONE){const l=$('scanLib');if(l)l.removeAttribute('multiple');}
+onScanFile=async function(inp){let files=[];try{files=[...(inp.files||[])];}catch(e){}
+  plog({scan:'picked',id:inp.id,n:files.length,f:files.map(f=>[f.type,Math.round(f.size/1024)+'KB'])});if(!files.length)return;
+  try{if(S.page!=='scan')go('scan');prog('📥 ได้รับรูปแล้ว กำลังย่อรูป…',.02);const out=[];
+    for(let i=0;i<files.length;i++){prog(`📐 ย่อรูป ${i+1}/${files.length}…`,.03);try{const b=await smallJpeg(files[i]);out.push(b);plog({scan:'shrunk',kb:Math.round(b.size/1024)});}
+      catch(e){toast('😿 '+(e.message||e));plog({scan:'shrink fail',m:String(e.message||e)});}await new Promise(r=>setTimeout(r,30));}
+    try{inp.value='';}catch(e){}
+    if(!out.length){$('scanProg').innerHTML='';return;}
+    const busy=SCANQ.length||SCAN;SCANQ.push(...out);SCANN+=out.length;if(!busy)scanNext();else{$('scanProg').innerHTML='';toast('เพิ่มเข้าคิว '+out.length+' รูป 🧾');}
+  }catch(e){plog({scan:'pipeline fail',m:String(e.message||e)});$('scanProg').innerHTML='';toast('😿 อัปโหลดรูปไม่สำเร็จ: '+(e.message||e));}};
+let SCAN_BLOB=null;
+function saveDraft(){try{if(SCAN){scKeepEdits&&$('scDate')&&scKeepEdits();const o=Object.assign({},SCAN);delete o.raw;localStorage.setItem('hm_scan_draft',JSON.stringify(o));}}catch(e){}}
+const clearDraft=()=>{try{localStorage.removeItem('hm_scan_draft');}catch(e){}};
+async function runTess(f){const d=await decodeImg(f,1600);const c=preprocess(d.src);prog('กำลังโหลดตัวอ่านภาษาไทย…',.05);await loadTesseract();
+  const w=await Tesseract.createWorker('tha+eng',1,{logger:m=>{if(m.status==='recognizing text')prog('กำลังอ่าน… ✏️',.3+m.progress*.7);else if(/load/.test(m.status))prog('กำลังโหลดภาษา (ครั้งแรกจะนานหน่อย)…',.1);}});
+  try{await w.setParameters({preserve_interword_spaces:'1'});const r=await w.recognize(c);window.LAST_OCR=r.data.text;
+    const res=isSlipText(r.data.text)?parseSlip(r.data.text):Object.assign(parseReceipt(r.data.text),{kind:'receipt'});res.engine='🖍️ Tesseract (ในเครื่อง)';return res;}
+  finally{try{await w.terminate();}catch(e){}freeCanvas(c);freeCanvas(d.src);}}
+analyzeScan=async function(f){const pos=SCANN-SCANQ.length,tok=++SCANTOK;SCAN_BLOB=f;SCAN_LOCK=null;let res=null,why='',thumb='';plog({scan:'analyze',kb:Math.round(f.size/1024)});
+  window.scanSkip=()=>{SCANTOK++;finish(null,'กรอกเอง');};
+  const finish=(r,w)=>{const base={kind:'receipt',date:S.today||todayStr_(),store:'',total:0,items:[],slip:null,engine:'✋ กรอกเอง'+(w?' ('+w+')':'')};
+    SCAN=Object.assign(base,r||{},{thumb,why:w||'',pos,type:(r&&r.type)||'รายจ่าย',canLocal:!r});SCAN_LOCK=SCAN;$('scanProg').innerHTML='';renderScanForm();
+    if(!r)$('scanForm').insertAdjacentHTML('afterbegin',`<button class="btn full lav" id="tessBtn" onclick="scanLocal()">🖍️ ลองอ่านในเครื่อง (ช้า ใช้แรมเยอะ)</button>`);saveDraft();plog({scan:'form',engine:SCAN.engine});};
+  try{prog('กำลังเตรียมรูป…',.05);thumb=(await compressImg(f,240,.6)).url;const key=geminiKey();
+    if(key&&navigator.onLine!==false){const g0=Date.now();let gm='🤖 Gemini กำลังอ่าน…';const tick=()=>{if(SCANTOK===tok)prog(gm+' ⏱️ '+Math.round((Date.now()-g0)/1000)+' วิ',Math.min(.95,.1+(Date.now()-g0)/120000));
+        const p=$('scanProg');if(p&&!p.querySelector('.skipbtn'))p.insertAdjacentHTML('beforeend','<button class="btn sm ghost skipbtn" onclick="scanSkip()">✋ ข้าม ไปกรอกเอง</button>');};
+      tick();const iv=setInterval(tick,1000);GEM_STEP=m=>{gm=m;};
+      try{let b64=await blobB64(f);const pr=geminiReceipt(b64,key);b64=null;res=await Promise.race([pr,new Promise((_,rej)=>setTimeout(()=>rej(new Error('เกิน 120 วิ')),120000))]);}
+      catch(e){why='Gemini ใช้ไม่ได้: '+(e.message||e);}finally{clearInterval(iv);GEM_STEP=()=>{};}}
+    else if(!IOS){try{res=await runTess(f);}catch(e){why=e.message||String(e);}}
+    else why='ไม่มี Gemini key – ใส่ที่ ⚙️ ตั้งค่า หรือกดอ่านในเครื่อง';
+  }catch(e){why=e.message||String(e);plog({scan:'analyze fail',m:why});}
+  if(SCANTOK!==tok)return;if(why&&!res)toast('😿 '+why);finish(res,res?'':why);};
+async function scanLocal(){if(!SCAN_BLOB)return toast('ไม่มีรูปแล้ว ลองเลือกรูปใหม่');scKeepEdits();const keep=SCAN;$('tessBtn')&&$('tessBtn').remove();
+  try{const r=await runTess(SCAN_BLOB);SCAN=Object.assign({},keep,r,{thumb:keep.thumb,pos:keep.pos,type:keep.type,canLocal:false});SCAN_LOCK=SCAN;$('scanProg').innerHTML='';renderScanForm();saveDraft();}
+  catch(e){$('scanProg').innerHTML='';toast('😿 อ่านในเครื่องไม่ได้: '+(e.message||e));}}
+{const _sn=scanNext;scanNext=function(){clearDraft();SCAN_BLOB=null;return _sn.apply(this,arguments);};}
+document.addEventListener('input',e=>{if(e.target.closest&&e.target.closest('#scanForm')){clearTimeout(window._dft);window._dft=setTimeout(saveDraft,800);}});
+setTimeout(()=>{try{const d=JSON.parse(localStorage.getItem('hm_scan_draft')||'null');if(d&&!SCAN){go('scan');SCAN=d;SCAN_LOCK=d;renderScanForm();toast('กู้รายการที่ค้างไว้ 🧾');plog({scan:'draft restored'});}}catch(e){clearDraft();}},300);
+// shrink already-stored big images once per open
+setTimeout(async()=>{let n=0;const dl=u=>fetch(u).then(r=>r.blob());
+  for(const r of DB.led){if(r['ใบเสร็จ']&&r['ใบเสร็จ'].length>50000){try{r['ใบเสร็จ']=(await compressImg(await dl(r['ใบเสร็จ']),320,.6)).url;n++;}catch(e){}}}
+  for(const m of DB.members||[]){if(m.photo&&m.photo.length>25000){try{m.photo=await squareThumb(await dl(m.photo),128);n++;}catch(e){}}}
+  if(n){persist();plog('recompressed '+n);}},2500);
+/* always-on sync + header chip */
+syncAutoOn=()=>true;try{localStorage.setItem(SY.auto,'1');}catch(e){}
+scheduleSync=function(){if(!syGet('url')||!syGet('code')){syChip();return;}localStorage.setItem(SY.pend,'1');syChip();clearTimeout(syTimer);syTimer=setTimeout(()=>{syTimer=null;syncNow(false);},3000);};
+function syChip(){const c=$('syChip');if(!c)return;if(!syGet('url')||!syGet('code')){c.className='sychip warn';c.textContent='⚠️ ยังไม่ได้เชื่อมชีต';return;}
+  if(syGet('pend')==='1'||syBusy){c.className='sychip';c.textContent='⏳ รอส่ง';return;}const l=syGet('last');c.className='sychip ok';c.textContent=l?'📗 ซิงค์แล้ว '+new Date(l).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}):'📗 พร้อมซิงค์';}
+{const _ss=syncShow;syncShow=function(m){_ss(m);syChip();};}
+function openSyncCard(){go('set');setTimeout(()=>{const c=$('syncCard');if(c)c.scrollIntoView({behavior:'smooth',block:'start'});},150);}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&syGet('url'))syncNow(false);});
+setTimeout(()=>{syChip();if(syGet('url')&&syGet('code'))syncNow(false);},800);setInterval(syChip,20000);
+{const _sn2=syncNow;syncNow=async function(){syChip();try{return await _sn2.apply(this,arguments);}finally{syChip();}};}
+syChip();
