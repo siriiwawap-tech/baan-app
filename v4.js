@@ -156,11 +156,33 @@ function loadScan(){const rows=DB.led.filter(r=>r['ใบเสร็จ']||r['�
 function loadTesseract(){if(window.Tesseract)return Promise.resolve();return new Promise((res,rej)=>{const s=document.createElement('script');
   s.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';s.onload=res;s.onerror=()=>rej(new Error('โหลดตัวอ่านบิลไม่ได้ (ต้องต่อเน็ต)'));document.head.appendChild(s);});}
 function prog(label,p){$('scanProg').innerHTML=`<div class="loader"><span class="pencil">🖍️</span><div>${esc(label)}</div><div class="bar b"><i style="width:${Math.round((p||0)*100)}%"></i></div><small>${Math.round((p||0)*100)}%</small></div>`;}
-const GKEY='hm_gemini_key';
-const GEM_MODELS=['gemini-2.5-flash','gemini-2.0-flash'];
+const GKEY='hm_gemini_key',GMODEL='hm_gemini_model',GAPI='https://generativelanguage.googleapis.com/v1beta/';
 function geminiKey(){try{return localStorage.getItem(GKEY)||'';}catch(e){return '';}}
-async function geminiCall(model,key,body){const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':key},body:JSON.stringify(body)});
-  const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error((j.error&&j.error.message)||('HTTP '+r.status));return j;}
+async function geminiCall(model,key,body){const r=await fetch(`${GAPI}models/${model}:generateContent`,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':key},body:JSON.stringify(body)});
+  const j=await r.json().catch(()=>({}));if(!r.ok){const e=new Error((j.error&&j.error.message)||('HTTP '+r.status));e.status=r.status;throw e;}return j;}
+const verNum=n=>{const m=n.match(/gemini-(\d+(?:\.\d+)?)/);return m?parseFloat(m[1]):0;};
+async function listGeminiModels(key){const r=await fetch(`${GAPI}models?pageSize=1000&key=${encodeURIComponent(key)}`);const j=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error((j.error&&j.error.message)||('HTTP '+r.status));
+  const ms=(j.models||[]).filter(m=>(m.supportedGenerationMethods||[]).includes('generateContent')).map(m=>String(m.name).replace(/^models\//,''))
+    .filter(n=>/gemini-.*flash/i.test(n)&&!/image|tts|live|embedding|audio|native|thinking/i.test(n));
+  const stable=ms.filter(n=>!/preview|exp/i.test(n)),pool=stable.length?stable:ms;
+  return pool.sort((a,b)=>verNum(b)-verNum(a)||(/lite/.test(a)-/lite/.test(b))||a.length-b.length);}
+async function pickGeminiModel(key,force){let m=!force&&localStorage.getItem(GMODEL);if(m)return m;
+  const ms=await listGeminiModels(key);if(!ms.length)throw new Error('ไม่พบโมเดล Gemini flash ที่ใช้ได้');localStorage.setItem(GMODEL,ms[0]);return ms[0];}
+const isGone=e=>e.status===404||/no longer available|not found|is not supported|deprecated|unknown model/i.test(e.message||'');
+const isSchemaErr=e=>e.status===400&&/schema|response_?mime|responseMimeType|generation_?config/i.test(e.message||'');
+async function geminiGenerate(key,body){const tried=new Set();let model=await pickGeminiModel(key,false),relisted=false,b=body;
+  for(let step=0;step<6;step++){tried.add(model);
+    try{const j=await geminiCall(model,key,b);localStorage.setItem(GMODEL,model);return {j,model};}
+    catch(e){if(isSchemaErr(e)&&b.generationConfig&&b.generationConfig.responseSchema){b=JSON.parse(JSON.stringify(b));delete b.generationConfig.responseSchema;delete b.generationConfig.responseMimeType;
+        b.contents[0].parts[0].text+='\n\nตอบเป็น JSON ล้วนเท่านั้น ไม่มีข้อความอื่น รูปแบบ {"date":"","store":"","total":0,"items":[{"name":"","qty":1,"price":0}],"category":""}';continue;}
+      if(!isGone(e))throw e;localStorage.removeItem(GMODEL);
+      const sug=(e.message||'').match(/models\/([a-z0-9.\-]+)/gi)||[];const next=sug.map(s=>s.replace(/^models\//i,'').replace(/[.\-]+$/,'')).find(n=>!tried.has(n));
+      if(next){model=next;continue;}
+      if(!relisted){relisted=true;const ms=await listGeminiModels(key);const n=ms.find(x=>!tried.has(x));if(n){model=n;continue;}}
+      throw e;}}
+  throw new Error('Gemini: ลองหลายโมเดลแล้วไม่สำเร็จ');}
+const parseJsonLoose=t=>{try{return JSON.parse(t);}catch(e){const m=String(t).match(/\{[\s\S]*\}/);if(m)return JSON.parse(m[0]);throw e;}};
 async function geminiReceipt(b64,key){const cats=S.lists['หมวดรายจ่าย']||[];
   const prompt=`คุณคือผู้ช่วยอ่านใบเสร็จภาษาไทย อ่านรูปบิลนี้ทั้งบิลพิมพ์และบิลเงินสดลายมือ (บิลเงินสดลายมือ) แล้วตอบเป็น JSON ตาม schema เท่านั้น
 - date: วันที่บนบิลเป็นรูปแบบ ISO YYYY-MM-DD; บิลไทยมักเป็น dd/mm/yy หรือ dd/mm/yyyy แบบพุทธศักราช ให้แปลงเป็น ค.ศ. (เช่น 08/09/69 → 2026-09-08, 2569 → 2026) ถ้าไม่พบให้เป็นค่าว่าง
@@ -171,11 +193,10 @@ async function geminiReceipt(b64,key){const cats=S.lists['หมวดราย�
   const body={contents:[{parts:[{text:prompt},{inline_data:{mime_type:'image/jpeg',data:b64}}]}],
     generationConfig:{temperature:0.1,responseMimeType:'application/json',responseSchema:{type:'OBJECT',properties:{date:{type:'STRING'},store:{type:'STRING'},total:{type:'NUMBER'},
       items:{type:'ARRAY',items:{type:'OBJECT',properties:{name:{type:'STRING'},qty:{type:'NUMBER'},price:{type:'NUMBER'}},required:['name','price']}},category:{type:'STRING',enum:cats.length?cats:undefined}},required:['total','items']}}};
-  let err;for(const m of GEM_MODELS){try{const j=await geminiCall(m,key,body);const t=j.candidates[0].content.parts.map(p=>p.text||'').join('');const o=JSON.parse(t);
-      const d=/^\d{4}-\d{2}-\d{2}$/.test(o.date||'')?o.date:(parseReceipt(o.date||'').date||'');
-      return {date:d,store:o.store||'',total:Number(o.total)||0,items:(o.items||[]).filter(i=>Number(i.price)>0).map(i=>({name:i.name,qty:Number(i.qty)||1,price:Number(i.price)})),
-        category:cats.includes(o.category)?o.category:'',raw:t,engine:'🤖 Gemini ('+m+')'};}catch(e){err=e;}}
-  throw err;}
+  const {j,model:m}=await geminiGenerate(key,body);const t=j.candidates[0].content.parts.map(p=>p.text||'').join('');const o=parseJsonLoose(t);
+  const d=/^\d{4}-\d{2}-\d{2}$/.test(o.date||'')?o.date:(parseReceipt(o.date||'').date||'');
+  return {date:d,store:o.store||'',total:Number(o.total)||0,items:(o.items||[]).filter(i=>Number(i.price)>0).map(i=>({name:i.name,qty:Number(i.qty)||1,price:Number(i.price)})),
+    category:cats.includes(o.category)?o.category:'',raw:t,engine:'🤖 Gemini ('+m+')'};}
 function preprocess(canvas){let c=canvas;const mx=Math.max(c.width,c.height);
   if(mx<1200){const k=mx<600?3:2,u=document.createElement('canvas');u.width=c.width*k;u.height=c.height*k;const ux=u.getContext('2d');ux.imageSmoothingQuality='high';ux.drawImage(c,0,0,u.width,u.height);c=u;}
   const x=c.getContext('2d'),d=x.getImageData(0,0,c.width,c.height),p=d.data,h=new Array(256).fill(0),n=p.length/4;
@@ -193,10 +214,11 @@ async function onScanFile(inp){const f=inp.files[0];inp.value='';if(!f)return;$(
       res=Object.assign(parseReceipt(r.data.text),{engine:'🖍️ Tesseract (ในเครื่อง)'+(key?'':' · ใส่ Gemini key ที่ ⚙️ ตั้งค่า เพื่อให้อ่านแม่นขึ้น')});}
     SCAN=Object.assign(res,{thumb,why});$('scanProg').innerHTML='';renderScanForm();
   }catch(e){$('scanProg').innerHTML='';toast('😿 '+(e.message||e));SCAN={date:'',store:'',total:0,items:[],thumb:'',raw:'',engine:'✋ กรอกเอง'};renderScanForm();}}
-function saveGemKey(){const v=$('gemKey').value.trim();if(v)localStorage.setItem(GKEY,v);else localStorage.removeItem(GKEY);$('gemKey').value='';showGemKey();toast(v?'บันทึก key แล้ว 🔐':'ลบ key แล้ว');}
-function showGemKey(){const k=geminiKey();if($('gemState'))$('gemState').textContent=k?'มี key แล้ว: '+k.slice(0,4)+'•••••••'+k.slice(-4):'ยังไม่มี key (จะใช้ตัวอ่านในเครื่อง)';}
-async function testGemKey(){const k=$('gemKey').value.trim()||geminiKey();if(!k)return toast('ใส่ key ก่อนนะ');$('gemState').textContent='⏳ กำลังทดสอบ…';
-  for(const m of GEM_MODELS){try{await geminiCall(m,k,{contents:[{parts:[{text:'ตอบคำว่า OK'}]}]});$('gemState').textContent='✅ ใช้งานได้ ('+m+')';return;}catch(e){$('gemState').textContent='❌ '+e.message;}}}
+function saveGemKey(){localStorage.removeItem(GMODEL);const v=$('gemKey').value.trim();if(v)localStorage.setItem(GKEY,v);else localStorage.removeItem(GKEY);$('gemKey').value='';showGemKey();toast(v?'บันทึก key แล้ว 🔐':'ลบ key แล้ว');}
+function showGemKey(){const k=geminiKey(),gm=localStorage.getItem(GMODEL);if($('gemState'))$('gemState').textContent=k?'มี key แล้ว: '+k.slice(0,4)+'•••••••'+k.slice(-4)+(gm?' · โมเดล: '+gm:''):'ยังไม่มี key (จะใช้ตัวอ่านในเครื่อง)';}
+async function testGemKey(){const k=$('gemKey').value.trim()||geminiKey();if(!k)return toast('ใส่ key ก่อนนะ');$('gemState').textContent='⏳ กำลังค้นหาโมเดล…';
+  try{localStorage.removeItem(GMODEL);const {model}=await geminiGenerate(k,{contents:[{parts:[{text:'ตอบคำว่า OK'}]}]});$('gemState').textContent='✅ ใช้งานได้ · โมเดล: '+model;}
+  catch(e){$('gemState').textContent='❌ '+e.message;}}
 function renderScanForm(){const p=SCAN,t=S.today||todayStr_();
   $('scanForm').innerHTML=`${p.thumb?`<img class="rcpt" src="${p.thumb}" alt="ใบเสร็จ">`:''}<div class="demo">อ่านโดย: <b>${esc(p.engine||'')}</b>${p.why?`<br><small>${esc(p.why)}</small>`:''}<br>✨ ตรวจ/แก้ข้อมูลให้ถูกก่อนบันทึกนะ</div>
   <div class="row"><div><label>📅 วันที่</label><input id="scDate" type="date" value="${p.date||t}"></div><div><label>💰 ยอดรวม</label><input id="scTotal" type="number" inputmode="decimal" class="amount" style="font-size:22px" value="${p.total||''}"></div></div>
