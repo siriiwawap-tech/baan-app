@@ -811,7 +811,7 @@ setTimeout(()=>{syChip();if(syGet('url')&&syGet('code'))syncNow(false);},800);se
 syChip();
 
 /* ---------- v25: release scan memory, fresh file input per pick ---------- */
-function scanCleanup(full){SCAN_BLOB=null;window.LAST_OCR=null;if(full){SCANQ.length=0;SCANN=0;}
+function scanCleanup(full){if(!full||typeof SIDX==="undefined"||SIDX<0)SCAN_BLOB=null;window.LAST_OCR=null;if(full&&(typeof SIDX==="undefined"||SIDX<0)){SCANQ.length=0;SCANN=0;}
   if(SCAN){SCAN.raw='';}document.querySelectorAll('#scanForm img').forEach(i=>{if(SCAN&&SCAN.thumb&&i.src!==SCAN.thumb&&i.src.length>SCAN.thumb.length)i.src=SCAN.thumb;});
   if(GDBG.length>30)GDBG.splice(0,GDBG.length-30);}
 function freshInput(id){const o=$(id);if(!o)return;const n=document.createElement('input');n.type='file';n.id=id;n.className=o.className;n.accept=o.accept;
@@ -824,4 +824,35 @@ document.addEventListener('click',e=>{const l=e.target.closest&&e.target.closest
 {const _sp=scanPick;scanPick=function(src,viaLabel){if(!viaLabel){scanCleanup(!SCAN);freshInput(src==='lib'?'scanLib':'scanFile');}return _sp(src,viaLabel);};}
 {const _sn3=scanNext;scanNext=function(){scanCleanup(false);const r=_sn3.apply(this,arguments);if(!SCANQ.length&&!SCAN)scanCleanup(true);return r;};}
 {const _lr2=ledRow;ledRow=function(r){return _lr2(r).replace('<img class="thumb"','<img class="thumb" loading="lazy" decoding="async"');};}
-{const _sv2=saveScan;saveScan=async function(){const r=await _sv2.apply(this,arguments);if(!SCAN){clearDraft();scanCleanup(true);}return r;};}
+{const _sv2=saveScan;saveScan=async function(){const r=await _sv2.apply(this,arguments);if(!SCAN&&!SCANQ.length&&!$('scanProg').innerHTML.trim()){clearDraft();scanCleanup(true);}return r;};}
+
+/* ---------- v26: up to 5 images, File-ref queue, one at a time ---------- */
+const SCAN_MAX=5;let STRIP=[],SIDX=-1;
+function stripSave(){try{if(STRIP.length)localStorage.setItem('hm_scan_q',JSON.stringify({idx:SIDX,total:STRIP.length,st:STRIP.map(s=>s.st)}));else localStorage.removeItem('hm_scan_q');}catch(e){}}
+function renderStrip(){const el=$('scanStrip');if(!el)return;el.innerHTML=STRIP.length>1?STRIP.map((s,i)=>`<span class="${s.st}">${s.thumb?`<img src="${s.thumb}" alt="">`:s.st==='done'?'✅':s.st==='skip'?'⏭️':i+1}</span>`).join(''):'';stripSave();}
+function stripEnd(){STRIP=[];SIDX=-1;renderStrip();}
+{const fi=freshInput;freshInput=function(id){fi(id);const n=$(id);if(n&&id==='scanLib')n.multiple=true;};}
+{const l=$('scanLib');if(l)l.multiple=true;}
+onScanFile=function(inp){let files=[];try{files=[...(inp.files||[])];}catch(e){}
+  plog({scan:'picked',id:inp.id,n:files.length,f:files.slice(0,7).map(f=>[f.type,Math.round(f.size/1024)+'KB'])});
+  freshInput(inp.id); // keep File refs alive on the detached input; new empty input for next pick
+  if(!files.length)return;
+  const room=SCAN_MAX-(SCAN?SCANQ.length+1:0);if(room<=0)return toast('ยังมีรูปค้างอยู่ 5 รูป ทำให้เสร็จก่อนนะ');
+  if(files.length>room){files=files.slice(0,room);toast(`เลือกได้ครั้งละ ${SCAN_MAX} รูป ใช้ ${room} รูปแรกนะ`);}
+  if(S.page!=='scan')go('scan');
+  const busy=!!SCAN||SIDX>=0;if(!busy){STRIP=[];SIDX=-1;SCANQ.length=0;}SCANQ.push(...files);files.forEach(()=>STRIP.push({st:'',thumb:''}));SCANN=STRIP.length;renderStrip();
+  if(!busy)scanNext();else toast('เพิ่มเข้าคิว '+files.length+' รูป 🧾');};
+scanNext=function(){if(STRIP[SIDX]&&STRIP[SIDX].st==='cur')STRIP[SIDX].st='skip';
+  scanCleanup(false);clearDraft();SCAN=null;SCAN_LOCK=null;SCAN_BLOB=null;$('scanForm').innerHTML='';
+  if(!SCANQ.length){plog({scan:'queue done'});stripEnd();scanCleanup(true);$('scanProg').innerHTML='';return;}
+  let f=SCANQ.shift();SIDX++;if(STRIP[SIDX])STRIP[SIDX].st='cur';renderStrip();plog({scan:'next',i:SIDX+1,of:STRIP.length,kb:Math.round(f.size/1024)});
+  prog(`📐 ย่อรูปใบที่ ${SIDX+1}/${STRIP.length}…`,.03);
+  smallJpeg(f).then(b=>{f=null;plog({scan:'shrunk',kb:Math.round(b.size/1024)});return analyzeScan(b);})
+   .catch(e=>{f=null;plog({scan:'shrink fail',m:String(e.message||e)});toast('😿 '+(e.message||e));SCAN={kind:'receipt',date:S.today,store:'',total:0,items:[],thumb:'',engine:'✋ กรอกเอง (เปิดรูปไม่ได้)',pos:SIDX+1,type:'รายจ่าย'};SCAN_LOCK=SCAN;$('scanProg').innerHTML='';renderScanForm();});};
+// pos/thumb into strip whenever the form renders
+{const _r=renderScanForm;renderScanForm=function(){if(SCAN&&SIDX>=0){SCAN.pos=SIDX+1;if(STRIP[SIDX]&&SCAN.thumb)STRIP[SIDX].thumb=SCAN.thumb;renderStrip();}SCANN=Math.max(STRIP.length,1);return _r.apply(this,arguments);};}
+{const _s=saveScan;saveScan=async function(){const i=SIDX,n=DB.led.length;const r=await _s.apply(this,arguments);if(DB.led.length>n&&STRIP[i]){STRIP[i].st='done';renderStrip();plog({scan:'saved',i:i+1});}
+  if(!SCAN&&!SCANQ.length&&!$('scanProg').innerHTML.trim()){stripEnd();clearDraft();scanCleanup(true);}return r;};}
+// resume note after reload: File refs are gone
+setTimeout(()=>{try{const q=JSON.parse(localStorage.getItem('hm_scan_q')||'null');if(!q)return;localStorage.removeItem('hm_scan_q');const left=q.total-q.idx-1;
+  if(left>0)setTimeout(()=>toast(`แอปรีโหลด รูปที่เหลือ ${left} รูปต้องเลือกใหม่นะ 🙏`),1800);plog({scan:'resume',idx:q.idx,total:q.total});}catch(e){}},500);

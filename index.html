@@ -338,6 +338,7 @@ label.scanopt,label.bigscan{cursor:pointer;-webkit-user-select:none;user-select:
 #scanRecent .item .av,#lList .item .av{flex:0 0 auto}
 #scanRecent .item .btn.sm,#lList .item .btn.sm{flex:0 0 auto;padding:3px 5px;min-width:0;font-size:14px}
 .sychip{font-family:Itim;font-size:12px;padding:3px 8px;border-radius:14px;border:2px solid rgba(90,58,38,.35);background:#FFF6E6;color:#5A3A26;margin-bottom:4px;white-space:nowrap}.sychip.warn{background:#FCE3D6;border-color:#D9824B}.sychip.ok{background:#E3EED6;border-color:#7FA36B}
+.sstrip{display:flex;gap:6px;justify-content:center;margin:4px 0 8px}.sstrip:empty{display:none}.sstrip span{width:40px;height:40px;border-radius:50%;border:2.5px dashed rgba(90,58,38,.35);display:flex;align-items:center;justify-content:center;font-size:14px;font-family:Itim;background:#FFF6E6;overflow:hidden}.sstrip span img{width:100%;height:100%;object-fit:cover}.sstrip .cur{border:3px solid #A0522D;transform:scale(1.12)}.sstrip .done{border:2.5px solid #7FA36B}.sstrip .skip{opacity:.4}
 </style>
 </head>
 <body>
@@ -482,7 +483,7 @@ label.scanopt,label.bigscan{cursor:pointer;-webkit-user-select:none;user-select:
     <div class="card scancard"><h2>📷 <span class="hl">สแกนใบเสร็จ</span></h2>
       <p class="muted">ถ่ายรูปบิลให้ชัด ๆ วางบนพื้นเรียบ แอพจะอ่านวันที่ ร้าน ยอดรวม และรายการให้ แล้วค่อยตรวจแก้ก่อนบันทึก ✏️</p>
       <div class="row"><label for="scanFile" class="bigscan wide" role="button" onclick="scanPick('cam',1)"><span class="cam">📷</span><b>ถ่ายรูป</b></label><label for="scanLib" class="bigscan wide lib" role="button" onclick="scanPick('lib',1)"><span class="cam">🖼️</span><b>เลือกจากคลังรูป</b></label></div>
-      <div id="scanProg"></div><div id="scanForm"></div></div>
+      <div id="scanStrip" class="sstrip"></div><div id="scanProg"></div><div id="scanForm"></div></div>
     <div class="card"><h2>🧾 <span class="hl">บิลที่สแกนล่าสุด</span></h2><div id="scanRecent"></div></div>
   </section>
   <section class="page" id="p-set">
