@@ -658,3 +658,24 @@ function notifyToday(){try{if(!('Notification' in window)||Notification.permissi
   if(navigator.serviceWorker&&navigator.serviceWorker.getRegistration)navigator.serviceWorker.getRegistration().then(show).catch(()=>show(null));else show(null);}catch(e){}}
 {const _ld2=loadDash;loadDash=function(){_ld2();setTimeout(()=>{renderBrief();renderCal();},0);};LOADERS.dash=loadDash;}
 setTimeout(()=>{renderBrief();renderCal();notifyToday();},60);
+
+/* ---------- manual stock status override (v21) ---------- */
+const OVR={'หมด':['red','หมด (ตั้งเอง)'],'ใกล้หมด':['orange','ใกล้หมด (ตั้งเอง)'],'มีเหลือ':['green','มีเหลือ (ตั้งเอง)']};
+{const _il=invLevel;invLevel=function(r,sh){const L=_il(r,sh);const o=OVR[r&&r['สถานะตั้งเอง']];if(!o)return L;
+  let fill=L.fill;if(o[0]==='red')fill=0;else if(o[0]==='orange')fill=Math.min(fill||0.25,0.3);else fill=Math.max(fill,0.6);return Object.assign({},L,{lv:o[0],why:o[1],fill});};}
+{const _xb=xpBar;xpBar=function(L,r){let h=_xb(L,r);if(r&&r._row)h=h.replace('<span class="xpl ',`<span role="button" title="แตะเพื่อตั้งสถานะ" onclick="event.stopPropagation();pickStatus(${r._row})" class="xpl tap `).replace(/<\/span><\/div>$/,' ▾</span></div>');return h;};}
+function pickStatus(row){const r=DB.inv.find(x=>x._row===row);if(!r)return;const cur=r['สถานะตั้งเอง']||'';
+  const b=(v,l,c)=>`<button class="btn full ${cur===v?'':'ghost'}" style="${c?'border-color:'+c:''}" onclick="setStatus(${row},'${v}')">${l}${cur===v?' ✓':''}</button>`;
+  openModal(`<h3>ตั้งสถานะ: ${esc(r['รายการ'])}</h3><p class="muted" style="margin:0 0 8px">ตอนนี้ ${num_(r['จำนวน'])} ${esc(r['หน่วย']||'')}</p>
+  ${b('หมด','🔴 หมด','#D9483B')}${b('ใกล้หมด','🟠 ใกล้หมด','#E8912D')}${b('มีเหลือ','🟢 มีเหลือ','#6FB36B')}${b('','🤖 อัตโนมัติตามจำนวน')}
+  <button class="btn full ghost" onclick="closeModal()">ปิด</button>`);}
+function stockRefresh(){try{INV=LOCAL.getInventory();}catch(e){}if(S.page==='inv'&&typeof loadInvRender==='function')loadInvRender();if(S.page==='shop')loadShop();if(S.page==='dash')renderHomeLow();if(S.page==='all')loadAll();}
+function setStatus(row,v){const r=DB.inv.find(x=>x._row===row);if(!r)return;r['สถานะตั้งเอง']=v;
+  if(v==='หมด')r['จำนวน']=0;else if(v==='มีเหลือ'&&num_(r['จำนวน'])<=0){const mn=num_(r['สต็อกขั้นต่ำ']);r['จำนวน']=num_(r['จำนวนเต็ม'])||(mn?mn*2:1);}
+  persist();stockRefresh();
+  if((v==='หมด'||v==='ใกล้หมด')&&!shopForInv(r)){openModal(`<h3>${v==='หมด'?'🔴':'🟠'} ${esc(r['รายการ'])} ${v}</h3><p>เพิ่มลงลิสต์ชอปปิ้งเลยไหม?</p>
+    <button class="btn full" onclick="addInvToShop(${row})">🛒 เพิ่มลงลิสต์</button><button class="btn full ghost" onclick="closeModal()">ไม่ต้อง</button>`);}
+  else{closeModal();toast(v?'ตั้งสถานะแล้ว ✨':'กลับเป็นอัตโนมัติแล้ว 🤖');}}
+function addInvToShop(row){const r=DB.inv.find(x=>x._row===row);if(!r)return;LOCAL.saveShopping({'รายการ':r['รายการ'],'จำนวน':1,'หน่วย':r['หน่วย']||'','ที่เก็บ/หมวด':r['ที่เก็บ']||'','ความด่วน':r['สถานะตั้งเอง']==='หมด'?'ด่วน':'ก่อนหมด','หมายเหตุ':''});closeModal();toast('เพิ่มลงลิสต์แล้ว 🛒');stockRefresh();}
+{const _ai=LOCAL.adjustInventory;LOCAL.adjustInventory=function(row,d){const r=DB.inv.find(x=>x._row===row);if(r&&r['สถานะตั้งเอง']){r['สถานะตั้งเอง']='';}return _ai.apply(this,arguments);};}
+{const _si=LOCAL.saveInventory;LOCAL.saveInventory=function(o){const r=o&&o._row&&DB.inv.find(x=>x._row===o._row);if(r&&r['สถานะตั้งเอง']&&o['จำนวน']!==undefined&&num_(o['จำนวน'])!==num_(r['จำนวน']))r['สถานะตั้งเอง']='';return _si.apply(this,arguments);};}
