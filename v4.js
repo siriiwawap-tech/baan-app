@@ -52,11 +52,13 @@ saveLedger=function(){const e={date:$('lDate').value,type:S.type,category:S.cat,
   if(!Number(e.amount))return toast('ใส่จำนวนเงินก่อนนะ 💕');
   api('addLedger',e).then(()=>{toast('บันทึกแล้ว ✅ '+baht(e.amount));$('lAmt').value='';$('lItem').value='';$('lNote').value='';renderMemBox();loadLedger();});};
 function ledRow(r){const inc=r['ประเภท']==='รายรับ',who=inc?r['เงินจากใคร']:r['ของใคร/จ่ายให้ใคร'];
-  return `<div class="item">${r['ใบเสร็จ']?`<img class="thumb" src="${r['ใบเสร็จ']}" alt="">`:`<div class="ico" style="background:${inc?'var(--mint)':'var(--pink)'}">${CAT_EMO[r['หมวดหมู่']]||'🏷️'}</div>`}
+  return `<div class="item${r._row===HILITE?' hilite':''}" data-row="${r._row}">${r['ใบเสร็จ']?`<img class="thumb" src="${r['ใบเสร็จ']}" alt="">`:`<div class="ico" style="background:${inc?'var(--mint)':'var(--pink)'}">${CAT_EMO[r['หมวดหมู่']]||'🏷️'}</div>`}
   <div class="t"><b>${esc(r['รายการ']||r['หมวดหมู่'])}</b><small>${thDate(r['วันที่'])} · ${esc(r['หมวดหมู่'])}${who?' · '+(inc?'จาก ':'ของ ')+esc(who):''}${r['จ่ายโดย']?' · จ่ายโดย '+esc(r['จ่ายโดย']):''}${r['วิธีชำระ']?' · '+esc(r['วิธีชำระ']):''}</small></div>
   ${who?avatar(who,'s'):''}<div class="money ${inc?'in-c':'out-c'}">${inc?'+':'−'}${baht(r['จำนวนเงิน (บาท)'])}</div>
   <button class="btn sm ghost" onclick="delLedger(${r._row})">🗑️</button></div>`;}
-loadLedger=function(){api('getLedger',Number($('lLimit').value)||30).then(rows=>{$('lList').innerHTML=rows.length?rows.map(ledRow).join(''):'<div class="empty">ยังไม่มีรายการ</div>';});};
+let HILITE=0;
+loadLedger=function(){api('getLedger',Number($('lLimit').value)||30).then(rows=>{$('lList').innerHTML=rows.length?rows.map(ledRow).join(''):'<div class="empty">ยังไม่มีรายการ</div>';
+  if(HILITE){const el=document.querySelector('#lList .hilite');if(el)setTimeout(()=>el.scrollIntoView({behavior:'smooth',block:'center'}),80);setTimeout(()=>{HILITE=0;},4000);}});};
 
 /* ---------- members page ---------- */
 function loadMembers(){$('memList').innerHTML=MEM().map(m=>`<div class="mem" onclick="editMember(${m.id})">${avatar(m)}<div>${esc(m.name)}</div><small>${m.kind==='business'?'🏢 กิจการ':'บุคคล'}</small></div>`).join('')||emptyMsg('🏠','ยังไม่มีสมาชิก');
@@ -116,7 +118,7 @@ const STORES=[[/7\s*-?\s*e[l1]e[vu]en|เซเว่น|cp\s*all/i,'7-Eleven'],
   [/shell|เชลล์/i,'Shell'],[/home\s*pro|โฮมโปร/i,'HomePro'],[/villa|วิลล่า/i,'Villa Market'],[/gourmet/i,'Gourmet Market'],[/cj\s*(more|express)?|ซีเจ/i,'CJ'],[/mr\.?\s*diy/i,'MR. DIY'],[/daiso|ไดโซ/i,'Daiso']];
 function knownStore(t){for(const [re,n] of STORES)if(re.test(t))return n;return '';}
 function parseReceipt(raw){
-  const txt=String(raw||'').replace(/[๐-๙]/g,c=>'๐๑๒๓๔๕๖๗๘๙'.indexOf(c)).replace(/\r/g,'');
+  const txt=String(raw||'').replace(/\u0E4D\u0E32/g,'\u0E33').replace(/[๐-๙]/g,c=>'๐๑๒๓๔๕๖๗๘๙'.indexOf(c)).replace(/\r/g,'');
   const lines=txt.split('\n').map(l=>l.replace(/\s+/g,' ').trim()).filter(l=>l.length>1);
   const out={date:'',store:'',total:0,items:[],raw:txt};let dl='';
   // date (first valid; supports BE yyyy, yy, Thai/English month names)
@@ -153,12 +155,11 @@ function guessCat(p){const s=(p.store+' '+p.items.map(i=>i.name).join(' ')).toLo
   const lst=S.lists['หมวดรายจ่าย']||[];for(const [c,re] of R)if(re.test(s)&&lst.includes(c))return c;return lst.includes('อื่นๆ')?'อื่นๆ':lst[0];}
 
 /* ---------- scanner flow ---------- */
-let SCAN=null;
 function startScan(){openModal(`<h3 style="text-align:center">🧾 สแกนบิล</h3><p class="muted" style="text-align:center">อยากใช้รูปจากไหนดี? 🐣</p>
   <div class="pickgrid"><button class="bigscan" onclick="scanPick('cam')"><span class="cam">📷</span><b>ถ่ายรูป</b></button><button class="bigscan lib" onclick="scanPick('lib')"><span class="cam">🖼️</span><b>เลือกจากคลังรูป</b></button></div>
   <button class="btn full ghost" onclick="closeModal()">ยกเลิก</button>`);}
 function scanPick(src){closeModal();const inp=$(src==='lib'?'scanLib':'scanFile');inp.click();if(S.page!=='scan')go('scan');}
-function loadScan(){const rows=DB.led.filter(r=>r['ใบเสร็จ']||r['ร้านค้า']).sort((a,b)=>b._row-a._row).slice(0,8);
+function loadScan(){const rows=DB.led.filter(r=>r['ใบเสร็จ']||r['ร้านค้า']||/สแกนบิล|สลิปโอนเงิน/.test(r['หมายเหตุ']||'')).sort((a,b)=>b._row-a._row).slice(0,8);
   $('scanRecent').innerHTML=rows.length?rows.map(ledRow).join(''):emptyMsg('🧾','ยังไม่เคยสแกนบิล ลองถ่ายใบแรกเลย!');}
 function loadTesseract(){if(window.Tesseract)return Promise.resolve();return new Promise((res,rej)=>{const s=document.createElement('script');
   s.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';s.onload=res;s.onerror=()=>rej(new Error('โหลดตัวอ่านบิลไม่ได้ (ต้องต่อเน็ต)'));document.head.appendChild(s);});}
@@ -233,20 +234,6 @@ async function geminiGenerate(key,body,opt){opt=Object.assign({timeout:45000,max
     if(lastErr)add(suggested(lastErr),true);if(!listed&&!queue.length)await doList();}
   throw lastErr||new Error('ไม่พบโมเดล Gemini ที่ใช้ได้');}
 const parseJsonLoose=t=>{try{return JSON.parse(t);}catch(e){const m=String(t).match(/\{[\s\S]*\}/);if(m){try{return JSON.parse(m[0]);}catch(e2){}}throw new Error('Gemini ตอบกลับไม่ใช่ JSON ที่อ่านได้');}};
-async function geminiReceipt(b64,key){const cats=S.lists['หมวดรายจ่าย']||[];
-  const prompt=`คุณคือผู้ช่วยอ่านใบเสร็จภาษาไทย อ่านรูปบิลนี้ทั้งบิลพิมพ์และบิลเงินสดลายมือ (บิลเงินสดลายมือ) แล้วตอบเป็น JSON ตาม schema เท่านั้น
-- date: วันที่บนบิลเป็นรูปแบบ ISO YYYY-MM-DD; บิลไทยมักเป็น dd/mm/yy หรือ dd/mm/yyyy แบบพุทธศักราช ให้แปลงเป็น ค.ศ. (เช่น 08/09/69 → 2026-09-08, 2569 → 2026) ถ้าไม่พบให้เป็นค่าว่าง
-- store: ชื่อร้านแบบแบรนด์มาตรฐาน เช่น 7-Eleven, Lotus's, Makro, Big C, Tops, FamilyMart ถ้าเป็นร้านทั่วไปใช้ชื่อตามบิล
-- total: ยอดที่ต้องจ่ายจริง ให้ใช้ "ยอดสุทธิ" เป็นหลัก (ไม่ใช่เงินที่ให้มา/เงินทอน)
-- items: รายการสินค้า {name, qty, price} โดย price คือราคารวมของบรรทัดนั้น แก้ตัวสะกดภาษาไทยให้เป็นชื่อสินค้าที่ถูกต้อง (เช่น อเมริกาโน่เย็น, ผ้าเปียก) ข้ามบรรทัดที่ราคา 0.00 แต้ม/สแตมป์/สิทธิ์แลกซื้อ ข้อมูลสมาชิก ภาษี และวิธีชำระเงิน
-- category: เลือกหมวดที่เหมาะที่สุดจากรายการนี้เท่านั้น: ${cats.join(', ')}`;
-  const body={contents:[{parts:[{text:prompt},{inline_data:{mime_type:'image/jpeg',data:b64}}]}],
-    generationConfig:{temperature:0.1,responseMimeType:'application/json',responseSchema:{type:'OBJECT',properties:{date:{type:'STRING'},store:{type:'STRING'},total:{type:'NUMBER'},
-      items:{type:'ARRAY',items:{type:'OBJECT',properties:{name:{type:'STRING'},qty:{type:'NUMBER'},price:{type:'NUMBER'}},required:['name','price']}},category:{type:'STRING',enum:cats.length?cats:undefined}},required:['total','items']}}};
-  const {j,model:m}=await geminiGenerate(key,body,{timeout:60000,maxModels:4,total:120000});let t='';try{t=j.candidates[0].content.parts.map(p=>p.text||'').join('');}catch(e){throw new Error('Gemini ไม่ส่งผลลัพธ์ ('+((j.promptFeedback&&j.promptFeedback.blockReason)||'ว่าง')+')');}const o=parseJsonLoose(t);
-  const d=/^\d{4}-\d{2}-\d{2}$/.test(o.date||'')?o.date:(parseReceipt(o.date||'').date||'');
-  return {date:d,store:o.store||'',total:Number(o.total)||0,items:(o.items||[]).filter(i=>Number(i.price)>0).map(i=>({name:i.name,qty:Number(i.qty)||1,price:Number(i.price)})),
-    category:cats.includes(o.category)?o.category:'',raw:t,engine:'🤖 Gemini ('+m+')'};}
 function preprocess(canvas){let c=canvas;const mx=Math.max(c.width,c.height);
   if(mx<1200){const k=mx<600?3:2,u=document.createElement('canvas');u.width=c.width*k;u.height=c.height*k;const ux=u.getContext('2d');ux.imageSmoothingQuality='high';ux.drawImage(c,0,0,u.width,u.height);c=u;}
   const x=c.getContext('2d'),d=x.getImageData(0,0,c.width,c.height),p=d.data,h=new Array(256).fill(0),n=p.length/4;
@@ -254,40 +241,141 @@ function preprocess(canvas){let c=canvas;const mx=Math.max(c.width,c.height);
   let lo=0,hi=255,acc=0;while(acc<n*.02&&lo<255)acc+=h[lo++];acc=0;while(acc<n*.4&&hi>0)acc+=h[hi--];
   hi=Math.max(hi,lo+40);for(let i=0;i<p.length;i+=4){let g=(p[i]-lo)*255/(hi-lo);g=g<0?0:g>255?255:g;g=255*Math.pow(g/255,1.6);p[i]=p[i+1]=p[i+2]=g;}
   x.putImageData(d,0,0);return c;}
-async function onScanFile(inp){const f=inp.files[0];inp.value='';if(!f)return;$('scanForm').innerHTML='';
-  try{const key0=geminiKey();prog('กำลังเตรียมรูป…',.02);
-    const big=await compressImg(f,key0?1280:1800,key0?.8:.9);const thumb=(await compressImg(f,320,.6)).url;const key=geminiKey();let res=null,why='';
-    if(key&&navigator.onLine!==false){try{const g0=Date.now();let gmsg='🤖 Gemini กำลังอ่านบิล…';const tick=()=>prog(gmsg+' ⏱️ '+Math.round((Date.now()-g0)/1000)+' วิ',Math.min(.95,.1+(Date.now()-g0)/120000));tick();const iv=setInterval(tick,1000);GEM_STEP=m=>{gmsg=m;tick();};try{res=await geminiReceipt(big.url.split(',')[1],key);}finally{clearInterval(iv);}}catch(e){GEM_STEP=()=>{};why='Gemini ใช้ไม่ได้ ('+(e.message||e)+') → ใช้ตัวอ่านในเครื่องแทน';}}
-    if(!res){const c=preprocess(big.canvas);prog('กำลังโหลดตัวอ่านภาษาไทย…',.05);await loadTesseract();
-      const w=await Tesseract.createWorker('tha+eng',1,{logger:m=>{if(m.status==='recognizing text')prog('กำลังอ่านบิล… ✏️',.3+m.progress*.7);else if(/load/.test(m.status))prog('กำลังโหลดภาษา (ครั้งแรกจะนานหน่อย)…',.05+(m.progress||0)*.25);}});
-      await w.setParameters({preserve_interword_spaces:'1'});const r=await w.recognize(c);await w.terminate();window.LAST_OCR=r.data.text;
-      res=Object.assign(parseReceipt(r.data.text),{engine:'🖍️ Tesseract (ในเครื่อง)'+(key?'':' · ใส่ Gemini key ที่ ⚙️ ตั้งค่า เพื่อให้อ่านแม่นขึ้น')});}
-    SCAN=Object.assign(res,{thumb,why});$('scanProg').innerHTML='';renderScanForm();
-  }catch(e){$('scanProg').innerHTML='';toast('😿 '+(e.message||e));SCAN={date:'',store:'',total:0,items:[],thumb:'',raw:'',engine:'✋ กรอกเอง'};renderScanForm();}}
 function saveGemKey(){localStorage.removeItem(GMODEL);const v=cleanKey($('gemKey').value);if(v)localStorage.setItem(GKEY,v);else localStorage.removeItem(GKEY);$('gemKey').value='';showGemKey();toast(v?'บันทึก key แล้ว 🔐':'ลบ key แล้ว');}
 function showGemKey(){const k=geminiKey(),gm=localStorage.getItem(GMODEL);if($('gemState'))$('gemState').textContent=k?'มี key แล้ว: '+k.slice(0,4)+'•••••••'+k.slice(-4)+(gm?' · โมเดล: '+gm:''):'ยังไม่มี key (จะใช้ตัวอ่านในเครื่อง)';}
 async function testGemKey(){const k=cleanKey($('gemKey').value)||geminiKey();if(!k)return toast('ใส่ key ก่อนนะ');const st=$('gemState'),steps=[];
   GEM_STEP=m=>{steps.push(m);st.innerHTML=steps.map(esc).join('<br>');};GEM_STEP('⏳ เริ่มทดสอบ…');
   try{localStorage.removeItem(GMODEL);localStorage.removeItem('hm_gemini_cfg');const {model}=await geminiGenerate(k,{contents:[{parts:[{text:'ตอบว่า ok'}]}],generationConfig:{maxOutputTokens:64,temperature:0}},{timeout:30000,maxModels:4,total:90000});GEM_STEP('✅ ใช้งานได้ · โมเดล: '+model);}
   catch(e){GEM_STEP('❌ ใช้ไม่ได้: '+((e&&e.message)||e));}finally{GEM_STEP=()=>{};}}
-function renderScanForm(){const p=SCAN,t=S.today||todayStr_();
-  $('scanForm').innerHTML=`${p.thumb?`<img class="rcpt" src="${p.thumb}" alt="ใบเสร็จ">`:''}<div class="demo">อ่านโดย: <b>${esc(p.engine||'')}</b>${p.why?`<br><small>${esc(p.why)}</small>`:''}<br>✨ ตรวจ/แก้ข้อมูลให้ถูกก่อนบันทึกนะ</div>
-  <div class="row"><div><label>📅 วันที่</label><input id="scDate" type="date" value="${p.date||t}"></div><div><label>💰 ยอดรวม</label><input id="scTotal" type="number" inputmode="decimal" class="amount" style="font-size:22px" value="${p.total||''}"></div></div>
-  <label>🏪 ร้านค้า</label><input id="scStore" value="${esc(p.store)}" placeholder="ชื่อร้าน">
-  <label>🧾 รายการในบิล</label><div id="scItems"></div><button class="btn sm ghost" onclick="scAddItem()">＋ เพิ่มรายการ</button>
-  <label>🏷️ หมวดหมู่</label><select id="scCat">${opts(S.lists['หมวดรายจ่าย']||[],p.category||guessCat(p))}</select>
-  <div class="row"><div>${memSelect('scFor','🎁 ของใคร/จ่ายให้ใคร','')}</div><div>${memSelect('scPaid','👛 จ่ายโดย','')}</div></div>
-  <label>💳 วิธีชำระ</label><select id="scMethod">${opts(S.lists['วิธีชำระ']||[])}</select>
-  <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" class="chk" id="scKeep" ${p.thumb?'checked':''}> เก็บรูปบิลย่อขนาดไว้ด้วย</label>
-  <button class="btn full" onclick="saveScan()">💾 บันทึกลงบัญชี</button><button class="btn full ghost" onclick="SCAN=null;$('scanForm').innerHTML=''">ยกเลิก</button>
-  ${p.raw?`<details style="margin-top:8px"><summary class="muted">ข้อความที่อ่านได้</summary><pre style="white-space:pre-wrap;font-size:12px">${esc(p.raw)}</pre></details>`:''}`;renderScItems();}
-function renderScItems(){$('scItems').innerHTML=SCAN.items.map((it,i)=>`<div class="itrow"><input value="${esc(it.name)}" oninput="SCAN.items[${i}].name=this.value"><input class="q" type="number" inputmode="numeric" value="${it.qty||1}" oninput="SCAN.items[${i}].qty=Number(this.value)" title="จำนวน"><input class="p" type="number" inputmode="decimal" value="${it.price}" oninput="SCAN.items[${i}].price=Number(this.value)"><button class="btn sm ghost" onclick="SCAN.items.splice(${i},1);renderScItems()">✕</button></div>`).join('')||'<div class="muted">ไม่พบรายการย่อย</div>';}
+/* ---------- Gemini: receipt OR bank slip ---------- */
+async function geminiReceipt(b64,key){const cats=S.lists['หมวดรายจ่าย']||[],icats=S.lists['หมวดรายรับ']||[];
+  const prompt=`คุณคือผู้ช่วยอ่านเอกสารการเงินภาษาไทย ดูรูปนี้แล้วตอบเป็น JSON ตาม schema เท่านั้น
+- docType: "slip" ถ้าเป็นสลิปโอนเงิน/หลักฐานการโอน (เช่น K PLUS/KBank, SCB, Krungthai/เป๋าตัง, Bangkok Bank, Krungsri, TTB, GSB/ออมสิน, PromptPay, TrueMoney) หรือ "receipt" ถ้าเป็นใบเสร็จ/บิลเงินสด (พิมพ์หรือลายมือ)
+- date: ISO YYYY-MM-DD แปลงปี พ.ศ. เป็น ค.ศ. (69→2026, 2569→2026) รองรับเดือนไทย เช่น 8 ก.ย. 69; time: HH:MM ถ้ามี
+- store: ใบเสร็จ=ชื่อร้านแบบแบรนด์มาตรฐาน (7-Eleven, Lotus's, Makro, Big C, Tops); สลิป=ชื่อผู้รับเงิน
+- total: ใบเสร็จใช้ "ยอดสุทธิ"; สลิปใช้จำนวนเงินที่โอน
+- items: เฉพาะใบเสร็จ {name, qty, price} แก้ตัวสะกดไทยให้ถูก ข้ามบรรทัด 0.00/แต้ม/สมาชิก/ภาษี/วิธีชำระ; สลิปให้เป็น []
+- slip: เฉพาะสลิป {sender, senderBank, receiver, receiverBank, ref (เลขที่รายการ/รหัสอ้างอิง), memo (บันทึกช่วยจำ)}
+- category: เลือกจากรายการนี้เท่านั้น: ${cats.join(', ')}`;
+  const body={contents:[{parts:[{text:prompt},{inline_data:{mime_type:'image/jpeg',data:b64}}]}],
+    generationConfig:{temperature:0.1,responseMimeType:'application/json',responseSchema:{type:'OBJECT',properties:{docType:{type:'STRING',enum:['receipt','slip']},date:{type:'STRING'},time:{type:'STRING'},store:{type:'STRING'},total:{type:'NUMBER'},
+      items:{type:'ARRAY',items:{type:'OBJECT',properties:{name:{type:'STRING'},qty:{type:'NUMBER'},price:{type:'NUMBER'}},required:['name','price']}},
+      slip:{type:'OBJECT',properties:{sender:{type:'STRING'},senderBank:{type:'STRING'},receiver:{type:'STRING'},receiverBank:{type:'STRING'},ref:{type:'STRING'},memo:{type:'STRING'}}},
+      category:{type:'STRING'}},required:['total']}}};
+  const {j,model:m}=await geminiGenerate(key,body,{timeout:60000,maxModels:4,total:120000});
+  let t='';try{t=j.candidates[0].content.parts.map(p=>p.text||'').join('');}catch(e){throw new Error('Gemini ไม่ส่งผลลัพธ์ ('+((j.promptFeedback&&j.promptFeedback.blockReason)||'ว่าง')+')');}
+  const o=parseJsonLoose(t);const d=/^\d{4}-\d{2}-\d{2}$/.test(o.date||'')?o.date:(parseReceipt(o.date||'').date||'');
+  const sl=o.slip||{},isSlip=o.docType==='slip';
+  return {kind:isSlip?'slip':'receipt',date:d,time:/^\d{1,2}:\d{2}/.test(o.time||'')?o.time.slice(0,5):'',store:o.store||(isSlip?sl.receiver||'':''),total:Number(o.total)||0,
+    items:isSlip?[]:(o.items||[]).filter(i=>Number(i.price)>0).map(i=>({name:i.name,qty:Number(i.qty)||1,price:Number(i.price)})),
+    slip:isSlip?{sender:sl.sender||'',senderBank:normBank(sl.senderBank||''),receiver:sl.receiver||o.store||'',receiverBank:normBank(sl.receiverBank||''),ref:String(sl.ref||'').replace(/\s/g,''),memo:sl.memo||''}:null,
+    category:cats.includes(o.category)?o.category:'',raw:t,engine:'🤖 Gemini ('+m+')'};}
+/* ---------- local bank slip parser ---------- */
+const BANKS=[[/k\s*plus|kbank|kasikorn|กสิกร/i,'กสิกรไทย'],[/scb|ไทยพาณิชย์|siam commercial/i,'ไทยพาณิชย์'],[/krungthai|ktb|กรุงไทย|เป๋าตัง/i,'กรุงไทย'],[/bangkok\s*bank|bbl|กรุงเทพ|bualuang|บัวหลวง/i,'กรุงเทพ'],
+  [/krungsri|กรุงศรี|bay\b|kma/i,'กรุงศรี'],[/ttb|ทีทีบี|ทหารไทย|ธนชาต/i,'ทีทีบี'],[/gsb|ออมสิน|mymo/i,'ออมสิน'],[/promptpay|พร้อมเพย์/i,'พร้อมเพย์'],[/true\s*money|ทรูมันนี่|ทรูวอลเล็ท/i,'TrueMoney'],
+  [/uob|ยูโอบี/i,'UOB'],[/cimb|ซีไอเอ็มบี/i,'CIMB'],[/baac|ธ\.?ก\.?ส/i,'ธ.ก.ส.'],[/lh\s*bank|แลนด์/i,'LH Bank']];
+function normBank(t){for(const [re,n] of BANKS)if(re.test(t))return n;return String(t||'').trim();}
+function isSlipText(t){const s=String(t).replace(/\u0E4D\u0E32/g,'\u0E33');let k=0;[/โอนเงินสำเร็จ|รายการสำเร็จ|ทำรายการสำเร็จ|transfer\s*(successful|completed)|successful/i,/เลขที่รายการ|รหัสอ้างอิง|เลขที่อ้างอิง|ref(erence)?\s*(no|id|\.)/i,/จำนวน(เงิน)?|amount/i,/ค่าธรรมเนียม|fee/i,/(^|\n)\s*(จาก|from)\b|(^|\n)\s*(ไปยัง|ถึง|to)\b/i,/พร้อมเพย์|promptpay|xxx-?x|x{3,}/i]
+  .forEach(r=>{if(r.test(s))k++;});return k>=3&&BANKS.some(([re])=>re.test(s))||k>=4;}
+function parseSlip(raw){const txt=String(raw||'').replace(/\u0E4D\u0E32/g,'\u0E33').replace(/[๐-๙]/g,c=>'๐๑๒๓๔๕๖๗๘๙'.indexOf(c));const L=txt.split('\n').map(l=>l.replace(/\s+/g,' ').trim()).filter(Boolean);
+  const base=parseReceipt(txt);const out={kind:'slip',date:base.date,time:'',store:'',total:0,items:[],slip:{sender:'',senderBank:'',receiver:'',receiverBank:'',ref:'',memo:''},raw:txt};
+  const am=l=>{const m=l.match(/(\d{1,3}(?:,\d{3})+|\d+)\.(\d{2})/);return m?Number(m[1].replace(/,/g,'')+'.'+m[2]):0;};
+  for(let i=0;i<L.length;i++){if(/จำนวน(เงิน)?|amount/i.test(L[i])&&!/ค่าธรรมเนียม|fee/i.test(L[i])){const v=am(L[i])||(L[i+1]?am(L[i+1]):0);if(v){out.total=v;break;}}}
+  if(!out.total){const vs=L.filter(l=>!/ค่าธรรมเนียม|fee|คงเหลือ|balance/i.test(l)).map(am).filter(Boolean);out.total=vs.length?Math.max(...vs):0;}
+  const tm=txt.match(/\b([01]?\d|2[0-3])[:.]([0-5]\d)(?::\d{2})?\s*(น\.|น|\b)/);if(tm)out.time=pad(+tm[1])+':'+tm[2];
+  for(let i=0;i<L.length;i++){const m=L[i].match(/(เลขที่รายการ|รหัสอ้างอิง|เลขที่อ้างอิง|รหัสรายการ|ref(?:erence)?\.?\s*(?:no|id)?\.?)\s*[:：]?\s*([A-Za-z0-9]{6,})?/i);
+    if(m){out.slip.ref=(m[2]||((L[i+1]||'').match(/[A-Za-z0-9]{6,}/)||[''])[0]);if(out.slip.ref)break;}}
+  const who=(re)=>{for(let i=0;i<L.length;i++){const m=L[i].match(re);if(m){let n=(m[2]||'').trim();let j=i+1;if(!n||/^[:：]$/.test(n))n=L[j++]||'';
+      const bankLine=[L[i],L[j]||'',L[j+1]||''].join(' ');return {name:n.replace(/^[:：]\s*/,'').replace(/\s*(xxx|x{2,}).*$/i,'').trim(),bank:normBank(bankLine)};}}return null;};
+  const f=who(/^(จาก|from|ผู้โอน)(?=\s|[:：]|$)\s*[:：]?\s*(.*)$/i),t=who(/^(ไปยัง|ถึง|to|ผู้รับ(?:เงิน)?)(?=\s|[:：]|$)\s*[:：]?\s*(.*)$/i);
+  if(f){out.slip.sender=f.name;out.slip.senderBank=BANKS.some(([re])=>re.test(f.bank))?f.bank:'';}
+  if(t){out.slip.receiver=t.name;out.slip.receiverBank=BANKS.some(([re])=>re.test(t.bank))?t.bank:'';}
+  if(!out.slip.senderBank)out.slip.senderBank=normBank(L.slice(0,4).join(' '))&&BANKS.some(([re])=>re.test(L.slice(0,4).join(' ')))?normBank(L.slice(0,4).join(' ')):'';
+  const mm=txt.match(/(บันทึกช่วยจำ|memo|note|หมายเหตุ)\s*[:：]?\s*([^\n]+)/i);if(mm)out.slip.memo=mm[2].trim();
+  out.store=out.slip.receiver;return out;}
+
+/* ---------- scan queue + robust inputs ---------- */
+let SCAN=null,SCANQ=[],SCANN=0;
+window.addEventListener('error',e=>{try{toast('😿 เกิดข้อผิดพลาด: '+(e.message||e.error));}catch(x){}});
+window.addEventListener('unhandledrejection',e=>{try{toast('😿 เกิดข้อผิดพลาด: '+((e.reason&&e.reason.message)||e.reason));}catch(x){}});
+document.addEventListener('change',e=>{const t=e.target;if(t&&(t.id==='scanFile'||t.id==='scanLib'))onScanFile(t);},true);
+async function onScanFile(inp){const files=[...(inp.files||[])];if(!files.length)return;
+  // iOS: copy bytes BEFORE resetting the input, so the File isn't invalidated
+  const blobs=[];for(const f of files){try{blobs.push(new File([await f.arrayBuffer()],f.name||'scan.jpg',{type:f.type||'image/jpeg'}));}catch(e){toast('😿 อ่านไฟล์ไม่ได้: '+(e.message||e));}}
+  try{inp.value='';}catch(e){}
+  if(!blobs.length)return;if(S.page!=='scan')go('scan');
+  const busy=SCANQ.length||SCAN;SCANQ.push(...blobs);SCANN+=blobs.length;if(!busy)scanNext();else toast('เพิ่มเข้าคิว '+blobs.length+' รูป 🧾');}
+function scanNext(){SCAN=null;$('scanForm').innerHTML='';if(!SCANQ.length){SCANN=0;return;}const f=SCANQ.shift();analyzeScan(f);}
+async function analyzeScan(f){const pos=SCANN-SCANQ.length;
+  try{const key=geminiKey();prog('กำลังเตรียมรูป…',.02);
+    const big=await compressImg(f,key?1280:1600,key?.8:.9);const thumb=(await compressImg(f,400,.6)).url;let res=null,why='';
+    if(key&&navigator.onLine!==false){try{const g0=Date.now();let gmsg='🤖 Gemini กำลังอ่าน…';const tick=()=>prog(gmsg+' ⏱️ '+Math.round((Date.now()-g0)/1000)+' วิ',Math.min(.95,.1+(Date.now()-g0)/120000));tick();const iv=setInterval(tick,1000);GEM_STEP=m=>{gmsg=m;tick();};
+        try{res=await geminiReceipt(big.url.split(',')[1],key);}finally{clearInterval(iv);GEM_STEP=()=>{};}}catch(e){why='Gemini ใช้ไม่ได้ ('+(e.message||e)+') → ใช้ตัวอ่านในเครื่องแทน';}}
+    if(!res){const c=preprocess(big.canvas);prog('กำลังโหลดตัวอ่านภาษาไทย…',.05);await loadTesseract();
+      const w=await Tesseract.createWorker('tha+eng',1,{logger:m=>{if(m.status==='recognizing text')prog('กำลังอ่าน… ✏️',.3+m.progress*.7);else if(/load/.test(m.status))prog('กำลังโหลดภาษา (ครั้งแรกจะนานหน่อย)…',.05+(m.progress||0)*.25);}});
+      try{await w.setParameters({preserve_interword_spaces:'1'});const r=await w.recognize(c);window.LAST_OCR=r.data.text;
+        res=isSlipText(r.data.text)?parseSlip(r.data.text):Object.assign(parseReceipt(r.data.text),{kind:'receipt'});}finally{try{await w.terminate();}catch(e){}}
+      res.engine='🖍️ Tesseract (ในเครื่อง)'+(key?'':' · ใส่ Gemini key ที่ ⚙️ ตั้งค่า เพื่อให้อ่านแม่นขึ้น');}
+    SCAN=Object.assign({kind:'receipt',items:[],slip:null},res,{thumb,why,pos,type:'รายจ่าย'});
+  }catch(e){toast('😿 '+(e.message||e));SCAN={kind:'receipt',date:'',store:'',total:0,items:[],thumb:'',raw:'',engine:'✋ กรอกเอง ('+(e.message||e)+')',pos,type:'รายจ่าย'};}
+  $('scanProg').innerHTML='';renderScanForm();}
+function slipCat(p){const s=((p.slip&&(p.slip.receiver+' '+p.slip.memo))||'').toLowerCase();const lst=S.lists['หมวดรายจ่าย']||[];
+  const R=[['ค่าไฟ',/ไฟฟ้า|pea|mea/],['ค่าน้ำดื่ม',/น้ำดื่ม|ประปา/],['ค่าเน็ต',/true|ais|3bb|dtac|เน็ต/],['ชำระหนี้',/บัตรเครดิต|สินเชื่อ|ผ่อน|ชำระหนี้/],['อาหารสด',/ตลาด|ผัก|หมู|ไก่|อาหาร/],['เดินทาง',/grab|bolt|แท็กซี่|น้ำมัน/]];
+  for(const [c,re] of R)if(re.test(s)&&lst.includes(c))return c;return p.category||guessCat(p);}
+function renderScanForm(){const p=SCAN,t=S.today||todayStr_(),isSlip=p.kind==='slip',inc=p.type==='รายรับ',sl=p.slip||{};
+  const cats=(inc?S.lists['หมวดรายรับ']:S.lists['หมวดรายจ่าย'])||[];const cat=inc?cats[0]:(isSlip?slipCat(p):(p.category||guessCat(p)));
+  const meth=isSlip?('โอนธนาคาร'+(sl.senderBank&&sl.senderBank!=='พร้อมเพย์'?' '+sl.senderBank:sl.senderBank==='พร้อมเพย์'?' (พร้อมเพย์)':'')):'';
+  const ml=(S.lists['วิธีชำระ']||[]).slice();if(meth&&!ml.includes(meth))ml.unshift(meth);
+  const remain=SCANQ.length;
+  $('scanForm').innerHTML=`${p.thumb?`<img class="rcpt" src="${p.thumb}" alt="">`:''}
+  <div class="demo">${isSlip?'<span class="kbadge">🏦 สลิปโอนเงิน</span> ':'<span class="kbadge r">🧾 ใบเสร็จ</span> '}${SCANN>1?`<b>ใบที่ ${p.pos}/${SCANN}</b> · `:''}อ่านโดย: <b>${esc(p.engine||'')}</b>${p.why?`<br><small>${esc(p.why)}</small>`:''}<br>✨ ตรวจ/แก้ข้อมูลให้ถูกก่อนบันทึกนะ</div>
+  <div class="seg" style="margin-top:8px"><button class="${inc?'out':'on out'}" onclick="scSetType('รายจ่าย')">💸 รายจ่าย</button><button class="${inc?'on in':'in'}" onclick="scSetType('รายรับ')">💰 รายรับ</button></div>
+  <div class="row"><div><label>📅 วันที่</label><input id="scDate" type="date" value="${p.date||t}"></div>${isSlip?`<div style="flex:0 0 96px"><label>⏰ เวลา</label><input id="scTime" type="time" value="${esc(p.time||'')}"></div>`:''}</div>
+  <label>💰 ${isSlip?'จำนวนเงินที่โอน':'ยอดรวม'}</label><input id="scTotal" type="number" inputmode="decimal" class="amount" style="font-size:22px" value="${p.total||''}">
+  <label>${isSlip?(inc?'👤 ผู้โอน (จาก)':'👤 ผู้รับเงิน (ไปยัง)'):'🏪 ร้านค้า'}</label><input id="scStore" value="${esc(isSlip&&inc?(sl.sender||''):(p.store||''))}" placeholder="${isSlip?'ชื่อ':'ชื่อร้าน'}">
+  ${isSlip?`<div class="row"><div><label>🏦 ผู้โอน</label><input id="scSender" value="${esc((sl.sender||'')+(sl.senderBank?' · '+sl.senderBank:''))}"></div><div><label>🏦 ผู้รับ</label><input id="scRecv" value="${esc((sl.receiver||'')+(sl.receiverBank?' · '+sl.receiverBank:''))}"></div></div>
+   <div class="row"><div><label>🔖 เลขที่รายการ</label><input id="scRef" value="${esc(sl.ref||'')}"></div><div><label>📝 บันทึกช่วยจำ</label><input id="scMemo" value="${esc(sl.memo||'')}"></div></div>`:
+   `<label>🧾 รายการในบิล</label><div id="scItems"></div><button class="btn sm ghost" onclick="scAddItem()">＋ เพิ่มรายการ</button>`}
+  <label>🏷️ หมวดหมู่</label><select id="scCat">${opts(cats,cat)}</select>
+  ${inc?memSelect('scFrom','💰 เงินจากใคร',''):`<div class="row"><div>${memSelect('scFor','🎁 ของใคร/จ่ายให้ใคร','')}</div><div>${memSelect('scPaid','👛 จ่ายโดย','')}</div></div>`}
+  <label>💳 วิธีชำระ</label><select id="scMethod">${opts(ml,meth)}</select>
+  <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" class="chk" id="scKeep" ${p.thumb?'checked':''}> เก็บรูปย่อไว้ด้วย</label>
+  <button class="btn full" id="scSave" onclick="saveScan()">💾 บันทึกลงบัญชี${remain?' แล้วไปใบถัดไป':''}</button>
+  ${remain?`<button class="btn full ghost" onclick="toast('ข้ามแล้ว');scanNext()">⏭️ ข้ามใบนี้ (เหลือ ${remain})</button>`:''}
+  <button class="btn full ghost" onclick="SCANQ=[];scanNext()">ยกเลิก${remain?'ทั้งหมด':''}</button>
+  ${p.raw?`<details style="margin-top:8px"><summary class="muted">ข้อความที่อ่านได้</summary><pre style="white-space:pre-wrap;font-size:12px">${esc(p.raw)}</pre></details>`:''}`;
+  if(!isSlip)renderScItems();setTimeout(()=>{const el=$('scanForm');if(el&&el.scrollIntoView)el.scrollIntoView({behavior:'smooth',block:'start'});},50);}
+function scKeepEdits(){const p=SCAN;if(!p)return;const g=id=>$(id)?$(id).value:undefined;p.date=g('scDate')||p.date;p.total=Number(g('scTotal'))||p.total;if(g('scTime')!==undefined)p.time=g('scTime');
+  if(p.kind==='slip'){p.slip.ref=g('scRef');p.slip.memo=g('scMemo');}else if($('scStore'))p.store=g('scStore');}
+function scSetType(t){scKeepEdits();SCAN.type=t;renderScanForm();}
+function renderScItems(){if(!$('scItems'))return;$('scItems').innerHTML=SCAN.items.map((it,i)=>`<div class="itrow"><input value="${esc(it.name)}" oninput="SCAN.items[${i}].name=this.value"><input class="q" type="number" inputmode="numeric" value="${it.qty||1}" oninput="SCAN.items[${i}].qty=Number(this.value)" title="จำนวน"><input class="p" type="number" inputmode="decimal" value="${it.price}" oninput="SCAN.items[${i}].price=Number(this.value)"><button class="btn sm ghost" onclick="SCAN.items.splice(${i},1);renderScItems()">✕</button></div>`).join('')||'<div class="muted">ไม่พบรายการย่อย</div>';}
 function scAddItem(){SCAN.items.push({name:'',qty:1,price:0});renderScItems();}
-function saveScan(){const amt=Number($('scTotal').value);if(!amt)return toast('ใส่ยอดรวมก่อนนะ 💕');const its=SCAN.items.filter(i=>i.name);
-  const store=$('scStore').value.trim();const item=(store?store+': ':'')+(its.map(i=>i.name).slice(0,4).join(', ')||'ตามบิล');
-  api('addLedger',{date:$('scDate').value,type:'รายจ่าย',category:$('scCat').value,item,amount:amt,method:$('scMethod').value,note:'สแกนบิล',
-    forWho:$('scFor').value,paidBy:$('scPaid').value,store,items:its.map(i=>i.name+((i.qty||1)>1?' x'+i.qty:'')+' '+i.price).join(' | '),receipt:$('scKeep').checked?SCAN.thumb:''})
-  .then(()=>{toast('บันทึกบิลแล้ว ✅ '+baht(amt));SCAN=null;$('scanForm').innerHTML='';loadScan();});}
+function shrinkDataUrl(u,max,q){return new Promise(res=>{if(!u)return res('');const i=new Image();i.onload=()=>{const s=Math.min(1,max/Math.max(i.width,i.height)),c=document.createElement('canvas');c.width=Math.round(i.width*s);c.height=Math.round(i.height*s);c.getContext('2d').drawImage(i,0,0,c.width,c.height);res(c.toDataURL('image/jpeg',q));};i.onerror=()=>res('');i.src=u;});}
+async function saveScan(){const btn=$('scSave');try{
+  const p=SCAN;if(!p)return;const amt=Number($('scTotal').value);if(!amt)return toast('ใส่จำนวนเงินก่อนนะ 💕');
+  const isSlip=p.kind==='slip',inc=p.type==='รายรับ',date=$('scDate').value||todayStr_(),time=$('scTime')?$('scTime').value:'';
+  const ref=isSlip?$('scRef').value.trim():'';const who=$('scStore').value.trim();
+  if(isSlip){const dup=DB.led.find(r=>(ref&&r['เลขอ้างอิง']===ref)||(!ref&&num_(r['จำนวนเงิน (บาท)'])===amt&&r['วันที่']===date&&time&&r['เวลา']===time));
+    if(dup&&!confirm('สลิปนี้ดูเหมือนบันทึกไปแล้ว ('+(dup['รายการ']||'')+' '+baht(dup['จำนวนเงิน (บาท)'])+')\nบันทึกซ้ำไหม?'))return toast('ไม่บันทึกซ้ำ 👍');}
+  const its=isSlip?[]:p.items.filter(i=>i.name);
+  const item=isSlip?(inc?'รับโอนจาก ':'โอนให้ ')+(who||'-'):(who?who+': ':'')+(its.map(i=>i.name).slice(0,4).join(', ')||'ตามบิล');
+  const memo=isSlip?$('scMemo').value.trim():'';
+  if(btn){btn.disabled=true;btn.textContent='⏳ กำลังบันทึก…';}
+  const row={_row:newId(),'วันที่':date,'ประเภท':inc?'รายรับ':'รายจ่าย','หมวดหมู่':$('scCat').value||'อื่นๆ','รายการ':item,'จำนวนเงิน (บาท)':amt,'วิธีชำระ':$('scMethod').value||'',
+    'หมายเหตุ':isSlip?['สลิปโอนเงิน',memo,ref?'Ref '+ref:''].filter(Boolean).join(' · '):'สแกนบิล'};
+  if(inc)row['เงินจากใคร']=$('scFrom').value;else{row['ของใคร/จ่ายให้ใคร']=$('scFor').value;row['จ่ายโดย']=$('scPaid').value;}
+  if(isSlip){Object.assign(row,{'เวลา':time,'เลขอ้างอิง':ref,'ผู้โอน':$('scSender').value.trim(),'ผู้รับ':$('scRecv').value.trim(),'บันทึกช่วยจำ':memo});}
+  else{row['ร้านค้า']=who;row['รายการย่อย']=its.map(i=>i.name+((i.qty||1)>1?' x'+i.qty:'')+' '+i.price).join(' | ');}
+  let img=$('scKeep').checked?p.thumb:'';if(img)row['ใบเสร็จ']=img;
+  DB.led.push(row);let saved=false,note='';
+  for(const step of [0,1,2]){try{localStorage.setItem(LS_KEY,JSON.stringify(DB));saved=true;break;}
+    catch(e){if(step===0&&img){img=await shrinkDataUrl(img,240,.5);row['ใบเสร็จ']=img;note=' (ย่อรูปเพิ่ม)';}else{delete row['ใบเสร็จ'];note=' (พื้นที่เต็ม ไม่ได้เก็บรูป)';}}}
+  if(!saved){DB.led=DB.led.filter(r=>r!==row);throw new Error('พื้นที่ในเครื่องเต็ม บันทึกไม่ได้ ลองลบรูปบิลเก่าหรือสำรองข้อมูล');}
+  try{scheduleSync();}catch(e){}
+  toast('บันทึกแล้ว ✅ '+baht(amt)+note);
+  if(SCANQ.length){scanNext();return;}
+  SCAN=null;SCANN=0;$('scanForm').innerHTML='';loadScan();HILITE=row._row;go('ledger');
+}catch(e){toast('😿 บันทึกไม่สำเร็จ: '+(e.message||e));if(btn){btn.disabled=false;btn.textContent='💾 บันทึกลงบัญชี';}}}
 
 /* ---------- export w/ members ---------- */
 const _xlsx=exportXlsx;

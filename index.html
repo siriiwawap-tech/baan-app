@@ -283,6 +283,8 @@ input,select,textarea{border:2.5px solid #5A3A26;border-radius:14px 9px 15px 10p
 .bigscan .scanopt:active{transform:translate(2px,2px);box-shadow:none}
 .bigscan.wide{flex-direction:column;gap:2px;padding:12px 6px}.bigscan.wide b{font-size:17px}.bigscan.lib{background-color:#D6E2EA}
 .pickgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:10px 0}.pickgrid .bigscan{margin:0;width:100%;flex:auto;padding:16px 8px}
+.kbadge{display:inline-block;background:#6F8FAF;color:#fff;border:2px solid #5A3A26;border-radius:10px;padding:1px 8px;font-family:Itim}.kbadge.r{background:#C98B5A}
+.item.hilite{background:#FFE7B0;border-radius:14px;animation:hl 1.2s ease-in-out 3}@keyframes hl{50%{background:#FFF6E0}}
 </style>
 </head>
 <body>
@@ -422,8 +424,8 @@ input,select,textarea{border:2.5px solid #5A3A26;border-radius:14px 9px 15px 10p
     <div class="card scancard"><h2>📷 <span class="hl">สแกนใบเสร็จ</span></h2>
       <p class="muted">ถ่ายรูปบิลให้ชัด ๆ วางบนพื้นเรียบ แอพจะอ่านวันที่ ร้าน ยอดรวม และรายการให้ แล้วค่อยตรวจแก้ก่อนบันทึก ✏️</p>
       <div class="row"><button class="bigscan wide" onclick="scanPick('cam')"><span class="cam">📷</span><b>ถ่ายรูป</b></button><button class="bigscan wide lib" onclick="scanPick('lib')"><span class="cam">🖼️</span><b>เลือกจากคลังรูป</b></button></div>
-      <input type="file" id="scanFile" accept="image/*" capture="environment" style="display:none" onchange="onScanFile(this)">
-      <input type="file" id="scanLib" accept="image/*" style="display:none" onchange="onScanFile(this)">
+      <input type="file" id="scanFile" accept="image/*" capture="environment"  style="display:none">
+      <input type="file" id="scanLib" accept="image/*" multiple  style="display:none">
       <div id="scanProg"></div><div id="scanForm"></div></div>
     <div class="card"><h2>🧾 <span class="hl">บิลที่สแกนล่าสุด</span></h2><div id="scanRecent"></div></div>
   </section>
