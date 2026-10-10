@@ -279,6 +279,10 @@ input,select,textarea{border:2.5px solid #5A3A26;border-radius:14px 9px 15px 10p
 #lockPad button{height:68px;border:2.8px solid #5A3A26;border-radius:50% 50% 50% 50%/60% 60% 40% 40%!important;background:#F6E6CC;color:#4A3020;box-shadow:2px 4px 0 rgba(90,58,38,.55)}
 #lockPad button:nth-child(3n+2){background:#EBCFA8}#lockPad button:nth-child(3n){background:#FFF3DF}
 #lockPad button[data-k=del]{background:#D9B48C}
+.bigscan .scanopt{font-family:Itim;font-size:13px;width:100%;margin-top:5px;padding:6px 4px;border:2px solid #5A3A26;border-radius:12px 9px 13px 10px;background:#FFFAF1;color:#4A3020;cursor:pointer;box-shadow:2px 2px 0 #5A3A26}
+.bigscan .scanopt:active{transform:translate(2px,2px);box-shadow:none}
+.bigscan.wide{flex-direction:column;gap:2px;padding:12px 6px}.bigscan.wide b{font-size:17px}.bigscan.lib{background-color:#D6E2EA}
+.pickgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:10px 0}.pickgrid .bigscan{margin:0;width:100%;flex:auto;padding:16px 8px}
 </style>
 </head>
 <body>
@@ -316,7 +320,8 @@ input,select,textarea{border:2.5px solid #5A3A26;border-radius:14px 9px 15px 10p
   <section class="page on" id="p-dash">
     <div class="sumrow">
       <div class="card wk"><h2>📅 <span class="hl">สัปดาห์นี้</span></h2><div id="vWeek"></div></div>
-      <button class="bigscan" onclick="startScan()"><span class="cam">📷</span><b>สแกนบิล</b><small>ถ่ายใบเสร็จ<br>จดให้อัตโนมัติ</small></button>
+      <div class="bigscan"><span class="cam">📷</span><b>สแกนบิล</b>
+        <button class="scanopt" onclick="scanPick('cam')">📷 ถ่ายรูป</button><button class="scanopt" onclick="scanPick('lib')">🖼️ เลือกจากคลังรูป</button></div>
     </div>
     <div class="card"><h2>💰 <span class="hl">เดือนนี้ เข้า vs ออก</span></h2><div id="vIncExp"></div></div>
     <div class="card"><h2>🍩 <span class="hl">ใช้เงินไปกับอะไรบ้าง</span></h2><div id="dCats"></div></div>
@@ -416,8 +421,9 @@ input,select,textarea{border:2.5px solid #5A3A26;border-radius:14px 9px 15px 10p
   <section class="page" id="p-scan">
     <div class="card scancard"><h2>📷 <span class="hl">สแกนใบเสร็จ</span></h2>
       <p class="muted">ถ่ายรูปบิลให้ชัด ๆ วางบนพื้นเรียบ แอพจะอ่านวันที่ ร้าน ยอดรวม และรายการให้ แล้วค่อยตรวจแก้ก่อนบันทึก ✏️</p>
-      <button class="bigscan wide" onclick="startScan()"><span class="cam">📷</span><b>ถ่าย / เลือกรูปบิล</b></button>
+      <div class="row"><button class="bigscan wide" onclick="scanPick('cam')"><span class="cam">📷</span><b>ถ่ายรูป</b></button><button class="bigscan wide lib" onclick="scanPick('lib')"><span class="cam">🖼️</span><b>เลือกจากคลังรูป</b></button></div>
       <input type="file" id="scanFile" accept="image/*" capture="environment" style="display:none" onchange="onScanFile(this)">
+      <input type="file" id="scanLib" accept="image/*" style="display:none" onchange="onScanFile(this)">
       <div id="scanProg"></div><div id="scanForm"></div></div>
     <div class="card"><h2>🧾 <span class="hl">บิลที่สแกนล่าสุด</span></h2><div id="scanRecent"></div></div>
   </section>
