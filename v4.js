@@ -809,3 +809,19 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
 setTimeout(()=>{syChip();if(syGet('url')&&syGet('code'))syncNow(false);},800);setInterval(syChip,20000);
 {const _sn2=syncNow;syncNow=async function(){syChip();try{return await _sn2.apply(this,arguments);}finally{syChip();}};}
 syChip();
+
+/* ---------- v25: release scan memory, fresh file input per pick ---------- */
+function scanCleanup(full){SCAN_BLOB=null;window.LAST_OCR=null;if(full){SCANQ.length=0;SCANN=0;}
+  if(SCAN){SCAN.raw='';}document.querySelectorAll('#scanForm img').forEach(i=>{if(SCAN&&SCAN.thumb&&i.src!==SCAN.thumb&&i.src.length>SCAN.thumb.length)i.src=SCAN.thumb;});
+  if(GDBG.length>30)GDBG.splice(0,GDBG.length-30);}
+function freshInput(id){const o=$(id);if(!o)return;const n=document.createElement('input');n.type='file';n.id=id;n.className=o.className;n.accept=o.accept;
+  if(o.hasAttribute('capture'))n.setAttribute('capture',o.getAttribute('capture'));if(o.multiple&&!(IOS&&STANDALONE))n.multiple=true;o.replaceWith(n);}
+function memHint(){const imgs=[...document.images];let ls=0;try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);ls+=(localStorage.getItem(k)||'').length;}}catch(e){}
+  return {q:SCANQ.length,blob:SCAN_BLOB?Math.round(SCAN_BLOB.size/1024):0,form:!!SCAN,imgs:imgs.length,imgKB:Math.round(imgs.reduce((s,i)=>s+(i.currentSrc||i.src||'').length,0)/1024),lsKB:Math.round(ls/1024),
+    heap:performance.memory?Math.round(performance.memory.usedJSHeapSize/1048576)+'MB':undefined};}
+document.addEventListener('click',e=>{const l=e.target.closest&&e.target.closest('label[for=scanFile],label[for=scanLib]');if(!l)return;
+  scanCleanup(!SCAN);freshInput(l.htmlFor);plog(Object.assign({scan:'prepick',src:l.htmlFor},memHint()));},true);
+{const _sp=scanPick;scanPick=function(src,viaLabel){if(!viaLabel){scanCleanup(!SCAN);freshInput(src==='lib'?'scanLib':'scanFile');}return _sp(src,viaLabel);};}
+{const _sn3=scanNext;scanNext=function(){scanCleanup(false);const r=_sn3.apply(this,arguments);if(!SCANQ.length&&!SCAN)scanCleanup(true);return r;};}
+{const _lr2=ledRow;ledRow=function(r){return _lr2(r).replace('<img class="thumb"','<img class="thumb" loading="lazy" decoding="async"');};}
+{const _sv2=saveScan;saveScan=async function(){const r=await _sv2.apply(this,arguments);if(!SCAN){clearDraft();scanCleanup(true);}return r;};}
