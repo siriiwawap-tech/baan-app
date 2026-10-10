@@ -296,6 +296,21 @@ input,select,textarea{border:2.5px solid #5A3A26;border-radius:14px 9px 15px 10p
 .mem.big .edb2{font-size:11.5px;padding:1px 7px;margin-top:2px;border:1.5px dashed #8A6E5A;border-radius:10px;background:none;color:var(--ink);cursor:pointer;font-family:Itim}
 .av.s{width:40px;height:40px;font-size:22px;flex:0 0 40px}
 .mpick{gap:10px}
+.xpw{display:flex;align-items:center;gap:6px;margin-top:5px;flex-wrap:wrap}
+.xp{position:relative;flex:1;min-width:120px;height:18px;border:2.5px solid #5A3A26;border-radius:10px;background:#F3E8D6;overflow:hidden;box-shadow:inset 0 2px 0 rgba(0,0,0,.08)}
+.xp i{position:absolute;left:0;top:0;bottom:0;border-radius:7px;background:var(--c);background-image:repeating-linear-gradient(-45deg,rgba(255,255,255,.25) 0 6px,transparent 6px 12px);box-shadow:inset 0 -3px 0 rgba(0,0,0,.12),inset 0 3px 0 rgba(255,255,255,.35);transition:width .5s}
+.xp span{position:relative;z-index:1;display:block;text-align:center;font-family:Itim;font-size:11.5px;line-height:13px;color:#3B2416;text-shadow:0 1px 0 rgba(255,255,255,.7)}
+.xp.red{--c:#D9483B}.xp.orange{--c:#F08A3C}.xp.yellow{--c:#F2C94C}.xp.green{--c:#6FB36B}
+.xp.red i{animation:pulse 1.2s ease-in-out infinite}@keyframes pulse{50%{opacity:.6}}
+.xpl{font-family:Itim;font-size:12px;padding:1px 8px;border-radius:10px;border:1.5px solid #5A3A26;white-space:nowrap}
+.xpl.red{background:#F7C6C0}.xpl.orange{background:#FAD7B5}.xpl.yellow{background:#FBEBB0}.xpl.green{background:#D4EBC9}
+.inshop{font-size:11px;background:#D6E2EA;border:1.5px solid #5A3A26;border-radius:8px;padding:0 5px;font-weight:400}
+.item.inv.red,.item.shop.red{background:linear-gradient(90deg,rgba(217,72,59,.10),transparent 60%)}.item.inv.orange,.item.shop.orange{background:linear-gradient(90deg,rgba(240,138,60,.10),transparent 60%)}
+.item.inv .qty{flex-direction:column;gap:4px}
+.urg{display:flex;gap:4px;margin-top:5px}.urg button{font-family:Itim;font-size:11.5px;padding:2px 7px;border:1.5px dashed #8A6E5A;border-radius:10px;background:#FFFAF1;color:var(--ink);cursor:pointer}
+.urg button.on.uด่วน{background:#F7C6C0;border-style:solid}.urg button.on.uก่อนหมด{background:#FAD7B5;border-style:solid}.urg button.on.uปกติ{background:#D4EBC9;border-style:solid}
+.lowrow{padding:7px 2px;border-bottom:2px dashed rgba(90,58,38,.2);cursor:pointer}.lowrow:last-child{border:none}.lowrow b{font-weight:500}
+.lvsum{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
 </style>
 </head>
 <body>

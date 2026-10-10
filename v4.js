@@ -525,3 +525,62 @@ function saveDebtPayEdit(row){const r=DB.debtlog.find(x=>x._row===row);if(!r)ret
 /* bigger member cards */
 {const _lmem=loadMembers;loadMembers=function(){_lmem();$('memList').innerHTML=MEM().map(m=>`<div class="mem big"><div onclick="${m.photo?`lightbox(DB.members.find(x=>x.id===${m.id}).photo)`:`editMember(${m.id})`}" style="cursor:${m.photo?'zoom-in':'pointer'}">${avatar(m,'xl')}</div>
   <div class="mname">${esc(m.name)}</div><small>${m.kind==='business'?'🏢 กิจการ':'บุคคล'}</small><button class="edb2" onclick="editMember(${m.id})">✏️ แก้ไข</button></div>`).join('')||emptyMsg('🏠','ยังไม่มีสมาชิก');};LOADERS.members=loadMembers;}
+
+/* ---------- 🔗 inventory ⇄ shopping ⇄ home, stock XP bars ---------- */
+const LV={red:{rank:0,label:'หมด/ต้องรีบซื้อ',emo:'🔴'},orange:{rank:1,label:'ใกล้หมด ควรซื้อ',emo:'🟠'},yellow:{rank:2,label:'เหลือครึ่ง',emo:'🟡'},green:{rank:3,label:'พอ',emo:'🟢'}};
+const nm=s=>String(s||'').trim().toLowerCase();
+function shopPending(){return DB.shop.filter(x=>!x['ซื้อแล้ว']);}
+function shopForInv(r){return shopPending().find(s=>nm(s['รายการ'])===nm(r['รายการ'])&&(!s['ที่เก็บ/หมวด']||!r['ที่เก็บ']||s['ที่เก็บ/หมวด']===r['ที่เก็บ']));}
+function invForShop(s){const c=DB.inv.filter(r=>nm(r['รายการ'])===nm(s['รายการ']));return c.find(r=>!s['ที่เก็บ/หมวด']||r['ที่เก็บ']===s['ที่เก็บ/หมวด'])||c[0];}
+function invLevel(r,sh){sh=sh===undefined?shopForInv(r):sh;const t=todayStr_(),q=num_(r['จำนวน']),mn=r['สต็อกขั้นต่ำ']===''||r['สต็อกขั้นต่ำ']==null?null:num_(r['สต็อกขั้นต่ำ']);
+  const full=num_(r['จำนวนเต็ม'])||(mn?mn*2:0);const fill=q<=0?0:full?Math.min(1,q/full):1;const exp=r['วันหมดอายุ'];const urg=sh&&sh['ความด่วน'];let lv='green',why='';
+  if(q<=0&&r['จำนวน']!==''){lv='red';why='หมดแล้ว';}else if(exp&&exp<t){lv='red';why='หมดอายุแล้ว';}else if(urg==='ด่วน'){lv='red';why='ด่วน';}
+  else if(mn!=null&&q<=mn){lv='orange';why='ใกล้หมด';}else if(exp&&dayDiff(exp,t)<=3){lv='orange';why='ใกล้หมดอายุ ('+thDate(exp)+')';}else if(urg==='ก่อนหมด'){lv='orange';why='ซื้อก่อนหมด';}
+  else if(full&&fill<=0.6){lv='yellow';why='เหลือครึ่ง';}
+  if(urg==='ปกติ'&&lv==='red'&&why==='หมดแล้ว'){lv='yellow';why='หมด (ไม่รีบ)';}
+  return {lv,fill,why:why||'พอใช้',q,full};}
+function xpBar(L,r){const pct=Math.round(L.fill*100);return `<div class="xpw"><div class="xp ${L.lv}"><i style="width:${Math.max(L.lv==='red'?6:4,pct)}%"></i><span>${esc(r?(num_(r['จำนวน'])+' '+(r['หน่วย']||'')+(L.full?' / '+L.full:'')):pct+'%')}</span></div><span class="xpl ${L.lv}">${LV[L.lv].emo} ${esc(L.why)}</span></div>`;}
+function ensureInvLinks(){let n=0;shopPending().forEach(s=>{if(!s['รายการ']||invForShop(s))return;const id=newId();
+    DB.inv.push({_row:id,'รายการ':s['รายการ'],'ที่เก็บ':s['ที่เก็บ/หมวด']||'','จำนวน':0,'หน่วย':s['หน่วย']||'','วันที่ซื้อ':'','วันหมดอายุ':'','สต็อกขั้นต่ำ':'','หมายเหตุ':s['หมายเหตุ']==='ตัวอย่าง'?'ตัวอย่าง':'สร้างจากชอปปิ้งลิสต์'});n++;});
+  if(n)persist();return n;}
+{const _ss=LOCAL.saveShopping;LOCAL.saveShopping=function(o){const r=_ss(o);const s=DB.shop.find(x=>x._row===r.row);if(s&&o['ความด่วน']!==undefined){s['ความด่วน']=o['ความด่วน'];persist();}ensureInvLinks();return r;};}
+LOCAL.lowStockToShopping=function(){const pend=shopPending();let added=0;
+  DB.inv.forEach(r=>{const L=invLevel(r,null);if((L.lv==='red'||L.lv==='orange')&&!shopForInv(r)){
+    LOCAL.saveShopping({'รายการ':r['รายการ'],'ที่เก็บ/หมวด':r['ที่เก็บ'],'จำนวน':Math.max(1,num_(r['สต็อกขั้นต่ำ'])*2-num_(r['จำนวน'])),'หน่วย':r['หน่วย'],'ความด่วน':L.lv==='red'?'ด่วน':'ก่อนหมด','หมายเหตุ':r['หมายเหตุ']==='ตัวอย่าง'?'ตัวอย่าง':''});added++;}});
+  return {ok:true,added};};
+lowToShop=function(){api('lowStockToShopping').then(r=>{toast(r.added?'เพิ่ม '+r.added+' รายการลงลิสต์ 🛒':'ของที่ต้องซื้ออยู่ในลิสต์ครบแล้ว 👍 ไม่มีอะไรต้องเพิ่ม');(LOADERS[S.page]||loadDash)();});};
+function sortedInv(){return DB.inv.map(r=>({r,L:invLevel(r)})).sort((a,b)=>LV[a.L.lv].rank-LV[b.L.lv].rank||a.L.fill-b.L.fill);}
+/* inventory list */
+loadInvRender=function(){document.querySelectorAll('#invFilter .chip').forEach(c=>c.classList.toggle('on',c.textContent.trim().endsWith(S.invLoc)));
+  const list=sortedInv().filter(({r,L})=>S.invLoc==='ทั้งหมด'||(S.invLoc==='⚠️ ต้องเติม'?L.lv==='red'||L.lv==='orange':r['ที่เก็บ']===S.invLoc));
+  $('invList').innerHTML=list.length?list.map(({r,L})=>{const sh=shopForInv(r);return `<div class="item inv ${L.lv}"><div class="ico" style="background:var(--lav)">${LOC_EMO[r['ที่เก็บ']]||'📦'}</div>
+    <div class="t" onclick="editInv(${r._row})"><b>${esc(r['รายการ'])}${sh?' <span class="inshop">🛒 ในลิสต์</span>':''}</b><small>${esc(r['ที่เก็บ']||'')}${r['วันหมดอายุ']?' · หมดอายุ '+thDate(r['วันหมดอายุ']):''}</small>${xpBar(L,r)}</div>
+    <div class="qty"><button onclick="adj(${r._row},-1)">−</button><button onclick="adj(${r._row},1)">＋</button></div></div>`;}).join(''):'<div class="empty">ไม่มีของในหมวดนี้</div>';};
+adj=function(row,d){api('adjustInventory',row,d).then(()=>{INV=LOCAL.getInventory();loadInvRender();});};
+LOADERS.inv=loadInv;
+/* editInv: add full-qty field */
+{const _ei=editInv;editInv=function(row){_ei(row);const r=DB.inv.find(x=>x._row===row)||{};const anchor=$('sheet').querySelector('.btn.full');if(anchor)anchor.insertAdjacentHTML('beforebegin',`<label>จำนวนตอนเต็ม (สำหรับแถบพลัง · ไม่ใส่ = ขั้นต่ำ×2)</label><input id="iFull" type="number" inputmode="decimal" value="${esc(r['จำนวนเต็ม']||'')}">`);};
+ const _sv=saveInv;saveInv=function(row){const f=$('iFull')?$('iFull').value:'';const name=$('iName').value;_sv(row);const r=row?DB.inv.find(x=>x._row===row):DB.inv.filter(x=>x['รายการ']===name).slice(-1)[0];if(r){r['จำนวนเต็ม']=f===''?'':num_(f);persist();}};}
+/* shopping list */
+loadShop=function(){ensureInvLinks();SHOP=LOCAL.getShopping();const pend=SHOP.filter(r=>r['ซื้อแล้ว']!==true),done=SHOP.filter(r=>r['ซื้อแล้ว']===true);
+  $('shopTotal').textContent='≈ '+baht(pend.reduce((s,r)=>s+Number(r['รวมประมาณ']||0),0));
+  const lvOf=s=>{const inv=invForShop(s);return inv?invLevel(inv,s):{lv:s['ความด่วน']==='ด่วน'?'red':s['ความด่วน']==='ก่อนหมด'?'orange':'yellow',fill:0,why:s['ความด่วน']||'ต้องซื้อ',q:0,full:0};};
+  const P=pend.map(s=>({s,L:lvOf(s),inv:invForShop(s)})).sort((a,b)=>LV[a.L.lv].rank-LV[b.L.lv].rank);
+  const row=({s,L,inv})=>{const b=s['ซื้อแล้ว']===true;return `<div class="item ${b?'done':''} shop ${b?'':L.lv}"><input type="checkbox" class="chk" ${b?'checked':''} onchange="tickShop(${s._row},this.checked)">
+    <div class="t"><b>${esc(s['รายการ'])}</b><small>${esc(s['จำนวน'])} ${esc(s['หน่วย']||'')}${s['ที่เก็บ/หมวด']?' · '+esc(s['ที่เก็บ/หมวด']):''}${b&&s['ราคาจริง']?' · '+baht(s['ราคาจริง']):(s['รวมประมาณ']?' · ≈'+baht(s['รวมประมาณ']):'')}</small>
+    ${b?'':`${inv?xpBar(L,inv):xpBar(L)}<div class="urg">${['ด่วน','ก่อนหมด','ปกติ'].map(u=>`<button class="${(s['ความด่วน']||'')===u?'on':''} u${u}" onclick="setUrg(${s._row},'${u}')">${u==='ด่วน'?'🔥 ด่วน':u==='ก่อนหมด'?'⏳ ก่อนหมด':'🙂 ปกติ'}</button>`).join('')}</div>`}</div>
+    <button class="btn sm ghost edb" onclick="editShop(${s._row})">✏️</button></div>`;};
+  $('shopList').innerHTML=(P.map(row).join('')||'<div class="empty">ลิสต์ว่างแล้ว 🎉</div>')+(done.length?'<div style="margin-top:10px;color:var(--muted);font-size:13px">✅ ซื้อแล้ว</div>'+done.map(s=>row({s,L:{lv:'green'}})).join(''):'');};
+function setUrg(row,u){const s=DB.shop.find(x=>x._row===row);if(!s)return;s['ความด่วน']=s['ความด่วน']===u?'':u;persist();loadShop();}
+LOADERS.shop=loadShop;
+/* home card */
+{const _ld=loadDash;loadDash=function(){_ld();setTimeout(renderHomeLow,0);};LOADERS.dash=loadDash;}
+function renderHomeLow(){ensureInvLinks();const L=sortedInv().filter(x=>x.L.lv!=='green');if(!$('dLow'))return;
+  $('dLow').innerHTML=L.length?`<div class="lvsum">${['red','orange','yellow'].map(k=>{const n=L.filter(x=>x.L.lv===k).length;return n?`<span class="xpl ${k}">${LV[k].emo} ${LV[k].label} ${n}</span>`:''}).join('')}</div>`+
+    L.slice(0,8).map(({r,L})=>`<div class="lowrow" onclick="go('inv')"><b>${LOC_EMO[r['ที่เก็บ']]||'📦'} ${esc(r['รายการ'])}${shopForInv(r)?' <span class="inshop">🛒</span>':''}</b>${xpBar(L,r)}</div>`).join('')+(L.length>8?`<div class="muted" style="text-align:center">และอีก ${L.length-8} รายการ…</div>`:'')
+    :emptyMsg('🥛','ของในบ้านยังพออยู่ เยี่ยม! 🌟');}
+/* gallery mini stat */
+{const _la=loadAll;loadAll=function(){_la();const L=sortedInv();const c=k=>L.filter(x=>x.L.lv===k).length;const g=document.querySelector('#gallery .gcard small');
+  if(g)g.innerHTML=`${DB.inv.length} รายการ · 🔴${c('red')} 🟠${c('orange')} 🟡${c('yellow')}`;};LOADERS.all=loadAll;}
+ensureInvLinks();
+setTimeout(renderHomeLow,50);
