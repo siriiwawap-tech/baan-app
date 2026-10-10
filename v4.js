@@ -703,3 +703,27 @@ onScanFile=async function(inp){let files=[];try{files=[...(inp.files||[])];}catc
   }catch(e){gdbg({scan:'pipeline fail',m:String(e&&e.message||e)});$('scanProg').innerHTML='';toast('😿 อัปโหลดรูปไม่สำเร็จ: '+(e.message||e));try{inp.value='';}catch(_){}}};
 {const _as=analyzeScan;analyzeScan=async function(f){try{gdbg({scan:'analyze',type:f.type,size:f.size});await _as(f);}catch(e){gdbg({scan:'analyze fail',m:String(e&&e.message||e)});$('scanProg').innerHTML='';toast('😿 '+(e.message||e));}};}
 document.addEventListener('click',e=>{const l=e.target.closest&&e.target.closest('label[for=scanFile],label[for=scanLib]');if(l){const i=$(l.htmlFor);if(i)try{i.value='';}catch(_){}}},true);
+
+/* ---------- v23: review form ALWAYS appears after picking ---------- */
+let SCAN_LOCK=null,SCANTOK=0;
+function manualScan(f,why){const pos=SCANN-SCANQ.length;const o={kind:'receipt',date:S.today||todayStr_(),store:'',total:0,items:[],thumb:'',raw:'',engine:'✋ กรอกเอง'+(why?' ('+why+')':''),why:why||'',pos,type:'รายจ่าย'};
+  SCAN_LOCK=o;SCAN=o;$('scanProg').innerHTML='';safeRenderForm();
+  if(f)compressImg(f,400,.6).then(r=>{if(SCAN===o){o.thumb=r.url;const im=document.querySelector('#scanForm img');if(im)im.src=r.url;else{scKeepEdits&&scKeepEdits();safeRenderForm();}}}).catch(e=>gdbg({scan:'thumb fail',m:String(e.message||e)}));}
+function safeRenderForm(){try{_rsf();if(!$('scanForm').innerHTML.trim())throw new Error('empty form');$('scanForm').scrollIntoView({behavior:'smooth',block:'start'});}
+  catch(e){gdbg({scan:'form fail',m:String(e.message||e)});toast('😿 เปิดฟอร์มไม่ได้: '+(e.message||e));
+    $('scanForm').innerHTML=`<div class="card"><h2>✋ กรอกเอง</h2><label>วันที่</label><input id="mfD" type="date" value="${S.today}"><label>รายการ/ร้าน</label><input id="mfS"><label>ยอดเงิน</label><input id="mfA" type="number" inputmode="decimal"><button class="btn full" onclick="saveManualMin()">💾 บันทึกลงบัญชี</button></div>`;}}
+function saveManualMin(){const a=num_($('mfA').value);if(!a)return toast('ใส่ยอดเงินก่อนนะ');try{LOCAL.addLedger({'วันที่':$('mfD').value,'ประเภท':'รายจ่าย','หมวดหมู่':'อื่นๆ','รายการ':$('mfS').value||'สแกนบิล','จำนวนเงิน (บาท)':a,'วิธีชำระ':'','หมายเหตุ':'สแกนบิล (กรอกเอง)'});persist&&persist();toast('บันทึกแล้ว ✅ '+baht(a));SCAN_LOCK=null;scanNext();loadScan();}catch(e){toast('😿 บันทึกไม่สำเร็จ: '+(e.message||e));}}
+const _rsf=renderScanForm;renderScanForm=function(){if(SCAN_LOCK&&SCAN!==SCAN_LOCK){gdbg({scan:'late result ignored'});SCAN=SCAN_LOCK;return;}safeRenderForm();};
+{const _an=analyzeScan;analyzeScan=async function(f){const tok=++SCANTOK;SCAN_LOCK=null;const T=geminiKey()?130000:90000,t0=Date.now();
+  const skip=()=>{if(SCANTOK!==tok||$('scanForm').innerHTML.trim())return;SCANTOK++;manualScan(f,'อ่านอัตโนมัติไม่ทัน');toast('อ่านบิลนานเกินไป เปิดฟอร์มให้กรอกเองนะ ✋');};
+  window.scanSkip=()=>{gdbg({scan:'user skip'});skip();};
+  const timer=setTimeout(skip,T);
+  const iv=setInterval(()=>{if(SCANTOK!==tok){clearInterval(iv);return;}const p=$('scanProg');if(p&&p.innerHTML&&!p.querySelector('.skipbtn'))p.insertAdjacentHTML('beforeend',`<button class="btn sm ghost skipbtn" style="margin-top:6px" onclick="scanSkip()">✋ ข้าม ไปกรอกเอง</button>`);},500);
+  try{await _an(f);}catch(e){gdbg({scan:'analyze threw',m:String(e.message||e)});}
+  clearTimeout(timer);clearInterval(iv);
+  if(SCANTOK===tok&&!$('scanForm').innerHTML.trim()){manualScan(f,'อ่านอัตโนมัติไม่สำเร็จ');}
+  if(SCAN&&!SCAN.thumb&&SCANTOK===tok){const o=SCAN;compressImg(f,400,.6).then(r=>{if(SCAN===o&&!o.thumb){o.thumb=r.url;try{scKeepEdits();}catch(e){}SCAN_LOCK=o;safeRenderForm();}}).catch(e=>gdbg({scan:'thumb fail',m:String(e.message||e)}));}
+  gdbg({scan:'analyze done',ms:Date.now()-t0,form:!!$('scanForm').innerHTML.trim()});};}
+{const _sv=saveScan;saveScan=function(){gdbg({scan:'save click',total:SCAN&&SCAN.total});const n=DB.led.length;let r;try{r=_sv.apply(this,arguments);}catch(e){gdbg({scan:'save threw',m:String(e.message||e)});toast('😿 บันทึกไม่สำเร็จ: '+(e.message||e));}
+  Promise.resolve(r).then(()=>{gdbg({scan:'saved',added:DB.led.length-n});if(DB.led.length>n)SCAN_LOCK=null;});return r;};}
+{const _sn=scanNext;scanNext=function(){SCAN_LOCK=null;return _sn.apply(this,arguments);};}
