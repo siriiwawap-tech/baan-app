@@ -285,6 +285,16 @@ input,select,textarea{border:2.5px solid #5A3A26;border-radius:14px 9px 15px 10p
 .pickgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:10px 0}.pickgrid .bigscan{margin:0;width:100%;flex:auto;padding:16px 8px}
 .kbadge{display:inline-block;background:#6F8FAF;color:#fff;border:2px solid #5A3A26;border-radius:10px;padding:1px 8px;font-family:Itim}.kbadge.r{background:#C98B5A}
 .item.hilite{background:#FFE7B0;border-radius:14px;animation:hl 1.2s ease-in-out 3}@keyframes hl{50%{background:#FFF6E0}}
+#lbox{position:fixed;inset:0;z-index:200;background:rgba(60,40,25,.85);display:none;align-items:center;justify-content:center;flex-direction:column;padding:16px}
+#lbox.show{display:flex}#lbox img{max-width:100%;max-height:85vh;border:4px solid #FFF8EC;border-radius:12px;box-shadow:0 6px 20px rgba(0,0,0,.4)}#lbox .lbx{color:#FFF8EC;margin-top:10px;font-family:Itim}
+.item .btn.sm.ghost{padding:5px 8px}
+.mgrid{grid-template-columns:1fr 1fr;gap:16px}
+.mem.big{display:flex;flex-direction:column;align-items:center;gap:4px;background:#FFF6E6;border:2.5px solid #5A3A26;border-radius:22px 16px 24px 18px;padding:12px 8px;box-shadow:3px 4px 0 rgba(90,58,38,.5);cursor:default}
+.mem.big:nth-child(odd){transform:rotate(-1deg)}.mem.big:nth-child(even){transform:rotate(1deg)}
+.av.xl{width:138px;height:138px;font-size:76px;border-width:3.5px;border-radius:50% 46% 52% 48%;box-shadow:3px 4px 0 #5A3A26}
+.mem.big .mname{font-family:Itim;font-size:21px;line-height:1.2;text-align:center}.mem.big .btn{margin-top:4px}
+.av.s{width:40px;height:40px;font-size:22px;flex:0 0 40px}
+.mpick{gap:10px}
 </style>
 </head>
 <body>

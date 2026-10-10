@@ -453,3 +453,75 @@ window.addEventListener('online',()=>{if(syGet('pend')==='1')syncNow(false);});
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&syncAutoOn()&&syGet('url'))syncNow(false);});
 {const _ls=loadSet;loadSet=function(){_ls();syncLoadUI();};LOADERS.set=loadSet;}
 if(syncAutoOn()&&syGet('url')&&syGet('code'))setTimeout(()=>syncNow(false),2500);
+
+/* ---------- ✏️ edit saved records ---------- */
+function lightbox(src){let d=$('lbox');if(!d){d=document.createElement('div');d.id='lbox';d.onclick=()=>d.classList.remove('show');document.body.appendChild(d);}
+  d.innerHTML=`<img src="${src}" alt=""><div class="lbx">✕ แตะเพื่อปิด</div>`;d.classList.add('show');}
+let ED=null;
+function parseSubItems(s){return String(s||'').split(' | ').filter(Boolean).map(x=>{const m=x.match(/^(.*?)(?:\s+x(\d+))?\s+([\d.]+)$/);return m?{name:m[1],qty:Number(m[2]||1),price:Number(m[3])}:{name:x,qty:1,price:0};});}
+function editLedger(row){const r=DB.led.find(x=>x._row===row);if(!r)return toast('ไม่พบรายการ');ED={row,items:parseSubItems(r['รายการย่อย'])};
+  const inc=r['ประเภท']==='รายรับ',ml=(S.lists['วิธีชำระ']||[]).slice();if(r['วิธีชำระ']&&!ml.includes(r['วิธีชำระ']))ml.unshift(r['วิธีชำระ']);
+  const catOpts=t=>{const l=((t==='รายรับ'?S.lists['หมวดรายรับ']:S.lists['หมวดรายจ่าย'])||[]).slice();if(r['หมวดหมู่']&&!l.includes(r['หมวดหมู่'])&&(t==='รายรับ')===inc)l.unshift(r['หมวดหมู่']);return opts(l,r['หมวดหมู่']);};
+  window._edCatOpts=catOpts;
+  openModal(`<h3>✏️ แก้ไขรายการ ${r['หมายเหตุ']&&/สลิป/.test(r['หมายเหตุ'])?'<span class="kbadge">🏦 สลิป</span>':''}</h3>
+  ${r['ใบเสร็จ']?`<img class="rcpt" src="${r['ใบเสร็จ']}" alt="" onclick="lightbox(this.src)" style="cursor:zoom-in;max-height:130px"><div class="muted" style="text-align:center;font-size:12px">แตะรูปเพื่อขยาย 🔍</div>`:''}
+  <label>ประเภท</label><select id="edType" onchange="edTypeChg()"><option ${!inc?'selected':''}>รายจ่าย</option><option ${inc?'selected':''}>รายรับ</option></select>
+  <div class="row"><div><label>📅 วันที่</label><input id="edDate" type="date" value="${esc(r['วันที่']||'')}"></div><div style="flex:0 0 100px"><label>⏰ เวลา</label><input id="edTime" type="time" value="${esc(r['เวลา']||'')}"></div></div>
+  <label>💰 จำนวนเงิน</label><input id="edAmt" type="number" inputmode="decimal" class="amount" style="font-size:22px" value="${esc(r['จำนวนเงิน (บาท)'])}">
+  <label>🏷️ หมวดหมู่</label><select id="edCat">${catOpts(r['ประเภท'])}</select>
+  <label>📝 รายการ</label><input id="edItem" value="${esc(r['รายการ']||'')}">
+  <label>🏪 ร้านค้า / ผู้รับ</label><input id="edStore" value="${esc(r['ร้านค้า']||r['ผู้รับ']||'')}">
+  <label>💳 วิธีชำระ</label><select id="edMeth"><option value="">—</option>${opts(ml,r['วิธีชำระ'])}</select>
+  <div id="edOut" style="${inc?'display:none':''}"><div class="row"><div>${memSelect('edFor','🎁 ของใคร',r['ของใคร/จ่ายให้ใคร']||'')}</div><div>${memSelect('edPaid','👛 จ่ายโดย',r['จ่ายโดย']||'')}</div></div></div>
+  <div id="edIn" style="${inc?'':'display:none'}">${memSelect('edFrom','💰 เงินจากใคร',r['เงินจากใคร']||'')}</div>
+  <div class="row"><div><label>🔖 เลขอ้างอิง</label><input id="edRef" value="${esc(r['เลขอ้างอิง']||'')}"></div><div><label>🗒️ หมายเหตุ</label><input id="edNote" value="${esc(r['หมายเหตุ']||'')}"></div></div>
+  <label>🧾 รายการย่อย</label><div id="edItems"></div><button class="btn sm ghost" onclick="ED.items.push({name:'',qty:1,price:0});edItemsR()">＋ เพิ่ม</button>
+  ${r['ใบเสร็จ']?`<label style="display:flex;gap:8px;align-items:center"><input type="checkbox" class="chk" id="edDelImg"> ลบรูปบิลนี้</label>`:''}
+  <button class="btn full" onclick="saveLedgerEdit()">💾 บันทึกการแก้ไข</button><button class="btn full ghost" onclick="ED=null;closeModal()">ยกเลิก</button>`);edItemsR();}
+function edTypeChg(){const t=$('edType').value;$('edCat').innerHTML=window._edCatOpts(t);$('edOut').style.display=t==='รายรับ'?'none':'';$('edIn').style.display=t==='รายรับ'?'':'none';}
+function edItemsR(){$('edItems').innerHTML=ED.items.map((it,i)=>`<div class="itrow"><input value="${esc(it.name)}" oninput="ED.items[${i}].name=this.value"><input class="q" type="number" value="${it.qty||1}" oninput="ED.items[${i}].qty=Number(this.value)"><input class="p" type="number" inputmode="decimal" value="${it.price}" oninput="ED.items[${i}].price=Number(this.value)"><button class="btn sm ghost" onclick="ED.items.splice(${i},1);edItemsR()">✕</button></div>`).join('')||'<div class="muted">—</div>';}
+function saveLedgerEdit(){try{const r=DB.led.find(x=>x._row===ED.row);if(!r)throw new Error('ไม่พบรายการ');const amt=Number($('edAmt').value);if(!amt)return toast('ใส่จำนวนเงินก่อนนะ 💕');
+  const t=$('edType').value,set=(k,v)=>{if(v===''||v==null)delete r[k];else r[k]=v;};
+  Object.assign(r,{'ประเภท':t,'วันที่':$('edDate').value||r['วันที่'],'จำนวนเงิน (บาท)':amt,'หมวดหมู่':$('edCat').value||'อื่นๆ','รายการ':$('edItem').value,'วิธีชำระ':$('edMeth').value,'หมายเหตุ':$('edNote').value});
+  set('เวลา',$('edTime').value);set('เลขอ้างอิง',$('edRef').value.trim());const st=$('edStore').value.trim();if(r['ผู้รับ']!==undefined&&!r['ร้านค้า'])set('ผู้รับ',st);else set('ร้านค้า',st);
+  if(t==='รายรับ'){set('เงินจากใคร',$('edFrom').value);delete r['ของใคร/จ่ายให้ใคร'];delete r['จ่ายโดย'];}else{set('ของใคร/จ่ายให้ใคร',$('edFor').value);set('จ่ายโดย',$('edPaid').value);delete r['เงินจากใคร'];}
+  set('รายการย่อย',ED.items.filter(i=>i.name).map(i=>i.name+((i.qty||1)>1?' x'+i.qty:'')+' '+(i.price||0)).join(' | '));
+  if($('edDelImg')&&$('edDelImg').checked)delete r['ใบเสร็จ'];
+  persist();const id=ED.row;ED=null;closeModal();toast('แก้ไขแล้ว ✅');HILITE=id;(LOADERS[S.page]||loadLedger)();if(S.page!=='ledger')loadLedger();
+}catch(e){toast('😿 แก้ไขไม่สำเร็จ: '+(e.message||e));}}
+/* ledger row: add edit button + tap thumbnail */
+{const _lr=ledRow;ledRow=function(r){return _lr(r).replace(`<button class="btn sm ghost" onclick="delLedger(${r._row})">🗑️</button>`,`<button class="btn sm ghost" onclick="editLedger(${r._row})" aria-label="แก้ไข">✏️</button><button class="btn sm ghost" onclick="delLedger(${r._row})">🗑️</button>`)
+  .replace('<img class="thumb" ',`<img class="thumb" onclick="lightbox(this.src)" style="cursor:zoom-in" `);};}
+const _delLed=delLedger;delLedger=function(row){if(confirm('ลบรายการนี้?'))api('deleteLedger',row).then(()=>{toast('ลบแล้ว');(LOADERS[S.page]||loadLedger)();});};
+/* shopping: edit */
+{const _ls=loadShop;loadShop=function(){_ls();setTimeout(()=>{document.querySelectorAll('#shopList .item').forEach((el,i)=>{const cb=el.querySelector('.chk');const m=cb&&cb.getAttribute('onchange').match(/tickShop\((\d+)/);if(m&&!el.querySelector('.edb'))el.insertAdjacentHTML('beforeend',`<button class="btn sm ghost edb" onclick="editShop(${m[1]})">✏️</button>`);});},0);};LOADERS.shop=loadShop;}
+function editShop(row){const r=DB.shop.find(x=>x._row===row);if(!r)return;openModal(`<h3>✏️ แก้ไขของที่ต้องซื้อ</h3><label>รายการ</label><input id="esName" value="${esc(r['รายการ'])}">
+  <div class="row"><div><label>จำนวน</label><input id="esQty" type="number" value="${esc(r['จำนวน'])}"></div><div><label>หน่วย</label><select id="esUnit"><option value=""></option>${opts(S.lists['หน่วย']||[],r['หน่วย'])}</select></div></div>
+  <label>ที่เก็บ/หมวด</label><select id="esLoc"><option value=""></option>${opts(S.lists['ที่เก็บ']||[],r['ที่เก็บ/หมวด'])}</select>
+  <div class="row"><div><label>ราคาประมาณ/หน่วย</label><input id="esPrice" type="number" value="${esc(r['ราคาประมาณ/หน่วย'])}"></div><div><label>ราคาจริง</label><input id="esReal" type="number" value="${esc(r['ราคาจริง'])}"></div></div>
+  <label>หมายเหตุ</label><input id="esNote" value="${esc(r['หมายเหตุ']||'')}">
+  <button class="btn full" onclick="saveShopEdit(${row})">💾 บันทึก</button><button class="btn full ghost" onclick="closeModal()">ยกเลิก</button>`);}
+function saveShopEdit(row){const r=DB.shop.find(x=>x._row===row);if(!r)return;if(!$('esName').value.trim())return toast('ใส่ชื่อก่อนนะ');
+  Object.assign(r,{'รายการ':$('esName').value.trim(),'จำนวน':num_($('esQty').value||1),'หน่วย':$('esUnit').value,'ที่เก็บ/หมวด':$('esLoc').value,'ราคาประมาณ/หน่วย':$('esPrice').value===''?'':num_($('esPrice').value),'ราคาจริง':$('esReal').value===''?'':num_($('esReal').value),'หมายเหตุ':$('esNote').value});
+  persist();closeModal();toast('แก้ไขแล้ว ✅');loadShop();}
+/* savings + debt payments: edit */
+{const _lm=loadMoney;loadMoney=function(){_lm();setTimeout(()=>{
+  document.querySelectorAll('#savRecent button[onclick^="delSav("]').forEach(b=>{const id=b.getAttribute('onclick').match(/\d+/)[0];if(!b.previousElementSibling||!b.previousElementSibling.classList.contains('edb'))b.insertAdjacentHTML('beforebegin',`<button class="btn sm ghost edb" onclick="editSav(${id})">✏️</button>`);});
+  document.querySelectorAll('#debtList button[onclick^="delDebtPay("]').forEach(b=>{const id=b.getAttribute('onclick').match(/\d+/)[0];if(!b.previousElementSibling||!b.previousElementSibling.classList.contains('edb'))b.insertAdjacentHTML('beforebegin',`<button class="btn sm ghost edb" onclick="editDebtPay(${id})">✏️</button>`);});},0);};LOADERS.money=loadMoney;}
+function editSav(row){const r=DB.sav.find(x=>x._row===row);if(!r)return;openModal(`<h3>✏️ แก้ไขเงินออม</h3>
+  <div class="row"><div><label>วันที่</label><input id="evDate" type="date" value="${esc(r['วันที่'])}"></div><div><label>ฝาก/ถอน</label><select id="evDir">${opts(['ฝาก','ถอน'],r['ฝาก/ถอน'])}</select></div></div>
+  <label>ประเภท</label><select id="evType">${opts(S.lists['ประเภทการออม']||[],r['ประเภท'])}</select>
+  <label>จำนวนเงิน</label><input id="evAmt" type="number" inputmode="decimal" value="${esc(r['จำนวนเงิน (บาท)'])}">
+  <label>บัญชี/รายละเอียด</label><input id="evDet" value="${esc(r['บัญชี/รายละเอียด']||'')}"><label>หมายเหตุ</label><input id="evNote" value="${esc(r['หมายเหตุ']||'')}">
+  <button class="btn full mint" onclick="saveSavEdit(${row})">💾 บันทึก</button><button class="btn full ghost" onclick="closeModal()">ยกเลิก</button>`);}
+function saveSavEdit(row){const r=DB.sav.find(x=>x._row===row);if(!r)return;if(!num_($('evAmt').value))return toast('ใส่จำนวนเงินก่อนนะ');
+  Object.assign(r,{'วันที่':$('evDate').value,'ฝาก/ถอน':$('evDir').value,'ประเภท':$('evType').value,'จำนวนเงิน (บาท)':num_($('evAmt').value),'บัญชี/รายละเอียด':$('evDet').value,'หมายเหตุ':$('evNote').value});persist();closeModal();toast('แก้ไขแล้ว ✅');loadMoney();}
+function editDebtPay(row){const r=DB.debtlog.find(x=>x._row===row);if(!r)return;openModal(`<h3>✏️ แก้ไขการจ่ายหนี้</h3><label>เจ้าหนี้</label><select id="epCred">${opts(DB.debt.map(d=>d['เจ้าหนี้']),r['เจ้าหนี้ที่จ่าย'])}</select>
+  <div class="row"><div><label>วันที่จ่าย</label><input id="epDate" type="date" value="${esc(r['วันที่จ่าย'])}"></div><div><label>จำนวนที่จ่าย</label><input id="epAmt" type="number" value="${esc(r['จำนวนที่จ่าย'])}"></div></div>
+  <label>ส่วนดอกเบี้ย</label><input id="epInt" type="number" value="${esc(r['ส่วนดอกเบี้ย'])}">
+  <button class="btn full" onclick="saveDebtPayEdit(${row})">💾 บันทึก</button><button class="btn full ghost" onclick="closeModal()">ยกเลิก</button>`);}
+function saveDebtPayEdit(row){const r=DB.debtlog.find(x=>x._row===row);if(!r)return;const a=num_($('epAmt').value),i=Math.min(a,num_($('epInt').value));if(!a)return toast('ใส่จำนวนเงินก่อนนะ');
+  Object.assign(r,{'เจ้าหนี้ที่จ่าย':$('epCred').value,'วันที่จ่าย':$('epDate').value,'จำนวนที่จ่าย':a,'ส่วนดอกเบี้ย':i});if('ส่วนเงินต้น' in r)r['ส่วนเงินต้น']=a-i;persist();closeModal();toast('แก้ไขแล้ว ✅');loadMoney();}
+/* bigger member cards */
+{const _lmem=loadMembers;loadMembers=function(){_lmem();$('memList').innerHTML=MEM().map(m=>`<div class="mem big"><div onclick="${m.photo?`lightbox(DB.members.find(x=>x.id===${m.id}).photo)`:`editMember(${m.id})`}" style="cursor:${m.photo?'zoom-in':'pointer'}">${avatar(m,'xl')}</div>
+  <div class="mname">${esc(m.name)}</div><small>${m.kind==='business'?'🏢 กิจการ':'บุคคล'}</small><button class="btn sm ghost" onclick="editMember(${m.id})">✏️ แก้ไข</button></div>`).join('')||emptyMsg('🏠','ยังไม่มีสมาชิก');};LOADERS.members=loadMembers;}
